@@ -160,36 +160,48 @@ def render_segmap(output_dir: Optional[str] = None, temp_dir: Optional[str] = No
                             object_id = int(object_id)
                             # get the corresponding object via the id
                             current_obj = objects[object_id]
-                            # if the current obj has a attribute with that name -> get it
-                            if hasattr(current_obj, attribute):
-                                value = getattr(current_obj, attribute)
-                                if isinstance(value, mathutils.Vector):
-                                    value = list(value.to_tuple())
-                            # if the current object has a custom property with that name -> get it
-                            elif current_attribute.startswith("cp_") and attribute in current_obj:
-                                value = current_obj[attribute]
-                            elif current_attribute.startswith("cf_"):
-                                if current_attribute == "cf_basename":
-                                    value = current_obj.name
-                                    if "." in value:
-                                        value = value[:value.rfind(".")]
-                            elif default_value_set:
-                                # if none of the above applies use the default value
-                                value = default_value
-                                num_default_values += 1
-                            else:
-                                # if the requested current_attribute is not a custom property or a attribute
-                                # or there is a default value stored
-                                # it throws an exception
-                                raise Exception("The obj: {} does not have the "
-                                                "attribute: {}, striped: {}. Maybe try a default "
-                                                "value.".format(current_obj.name, current_attribute, attribute))
+                            if attribute != "height" and attribute != "orientation":
+                                # if the current obj has a attribute with that name -> get it
+                                if hasattr(current_obj, attribute):
+                                    value = getattr(current_obj, attribute)
+                                    if isinstance(value, mathutils.Vector):
+                                        value = list(value.to_tuple())
+                                # if the current object has a custom property with that name -> get it
+                                elif current_attribute.startswith("cp_") and attribute in current_obj:
+                                    value = current_obj[attribute]
+                                elif current_attribute.startswith("cf_"):
+                                    if current_attribute == "cf_basename":
+                                        value = current_obj.name
+                                        if "." in value:
+                                            value = value[:value.rfind(".")]
+                                elif default_value_set:
+                                    # if none of the above applies use the default value
+                                    value = default_value
+                                    num_default_values += 1
+                                else:
+                                    # if the requested current_attribute is not a custom property or a attribute
+                                    # or there is a default value stored
+                                    # it throws an exception
+                                    raise Exception("The obj: {} does not have the "
+                                                    "attribute: {}, striped: {}. Maybe try a default "
+                                                    "value.".format(current_obj.name, current_attribute, attribute))
 
-                            # save everything which is not instance also in the .csv
-                            if isinstance(value, (int, float, np.integer, np.floating)):
-                                was_used = True
-                                resulting_map[segmap == object_id] = value
+                                # save everything which is not instance also in the .csv
+                                if isinstance(value, (int, float, np.integer, np.floating)):
+                                    was_used = True
+                                    resulting_map[segmap == object_id] = value
 
+                            if current_attribute == "height":
+                                try:
+                                    value = current_obj.dimensions.z
+                                except:
+                                    value = None
+                            if current_attribute == "orientation":
+                                try:
+                                    value = [current_obj.rotation_euler.x, current_obj.rotation_euler.y,
+                                             current_obj.rotation_euler.z]
+                                except:
+                                    value = None
                             if object_id in save_in_csv_attributes:
                                 save_in_csv_attributes[object_id][attribute] = value
                             else:

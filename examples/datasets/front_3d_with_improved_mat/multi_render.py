@@ -5,6 +5,7 @@ from pathlib import Path
 from multiprocessing import Pool
 from functools import partial
 import numpy as np
+from time import time
 
 
 def parse_args():
@@ -55,6 +56,7 @@ def per_call(process_id, args, front_jsons_by_process):
 
 if __name__ == '__main__':
     '''Parse folders / file paths'''
+    start_time = time()
     args = parse_args()
     front_folder, future_folder, front_3D_texture_folder, cc_material_folder, output_folder = get_folders(args)
 
@@ -88,3 +90,5 @@ if __name__ == '__main__':
     p.map(partial(per_call, args=args, front_jsons_by_process=front_jsons_by_process), range(args.n_processes))
     p.close()
     p.join()
+
+    print('Time elapsed: %f.' % (time() - start_time))

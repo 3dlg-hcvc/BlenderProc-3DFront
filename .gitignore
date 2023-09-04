@@ -27,3 +27,4 @@ docs/source/*rst
 docs/source/images/
 docs/source/examples/
 docs/source/*md
+/examples/datasets/front_3d_with_improved_mat/failed_scene_names.txt

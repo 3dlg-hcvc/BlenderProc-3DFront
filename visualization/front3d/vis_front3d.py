@@ -9,6 +9,8 @@ from visualization.front3d.tools.threed_front import ThreedFront
 from visualization.front3d.vis_classes import VIS_3DFRONT, VIS_3DFRONT_2D
 from visualization.front3d.tools.utils import parse_inst_from_3dfront, project_insts_to_2d
 from visualization.utils.tools import label_mapping_2D
+from pathlib import Path
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Visualize a 3D-FRONT room.")
@@ -36,7 +38,8 @@ if __name__ == '__main__':
     print(d)
 
     '''Read rendering information'''
-    scene_render_dir = dataset_config.threed_front_rendering_dir.joinpath('.'.join(args.json_file.split('.')[:-1]))
+    # scene_render_dir = dataset_config.threed_front_rendering_dir.joinpath('.'.join(args.json_file.split('.')[:-1]))
+    scene_render_dir = Path("/home/sunxh/Xiaohao/BlenderProc-3DFront/examples/datasets/front_3d_with_improved_mat/renderings/dc7cf279-6df8-466a-8a4a-5998feb35c79_MasterBedroom-26362")
     cam_K = dataset_config.cam_K
 
     room_imgs = []
@@ -48,8 +51,8 @@ if __name__ == '__main__':
     for render_path in scene_render_dir.iterdir():
         with h5py.File(render_path) as f:
             colors = np.array(f["colors"])[:,::-1]
-            depth = np.array(f["depth"])[:, ::-1]
-            depth[depth == dataset_config.infinite_depth] = 0
+            # depth = np.array(f["depth"])[:, ::-1]
+            # depth[depth == dataset_config.infinite_depth] = 0
             cam_T = np.array(f["cam_Ts"])
             class_segmap = np.array(f["class_segmaps"])[:,::-1]
             instance_segmap = np.array(f["instance_segmaps"])[:,::-1]
@@ -101,7 +104,7 @@ if __name__ == '__main__':
         # process cam_T from blender to ours
         cam_T = dataset_config.blender2opengl_cam(cam_T)
         room_imgs.append(colors)
-        room_depths.append(depth)
+        # room_depths.append(depth)
         cam_Ts.append(cam_T)
         class_maps.append(class_segmap)
         instance_attrs.append(inst_info)
@@ -119,12 +122,12 @@ if __name__ == '__main__':
                               class_names=dataset_config.label_names, projected_inst_boxes=projected_inst_boxes)
 
     viser_2D.draw_colors()
-    viser_2D.draw_depths()
+    # viser_2D.draw_depths()
     viser_2D.draw_cls_maps()
     viser_2D.draw_inst_maps(type=('mask'))
     viser_2D.draw_box2d_from_3d()
 
-    viser = VIS_3DFRONT(rooms=d.rooms, cam_K=cam_K, cam_Ts=cam_Ts, color_maps=room_imgs, depth_maps=room_depths,
-                        inst_info=instance_attrs, layout_boxes=layout_boxes,
-                        class_names=dataset_config.label_names)
-    viser.visualize(type=['pointcloud', 'mesh', 'bbox', 'layout_box', 'cam_pose', 'ori_layout'])
+    # viser = VIS_3DFRONT(rooms=d.rooms, cam_K=cam_K, cam_Ts=cam_Ts, color_maps=room_imgs, depth_maps=room_depths,
+    #                     inst_info=instance_attrs, layout_boxes=layout_boxes,
+    #                     class_names=dataset_config.label_names)
+    # viser.visualize(type=['pointcloud', 'mesh', 'bbox', 'layout_box', 'cam_pose', 'ori_layout'])

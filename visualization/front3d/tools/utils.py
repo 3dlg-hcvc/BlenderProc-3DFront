@@ -39,8 +39,8 @@ def parse_threed_front_scenes(
 
     scenes = []
     # Start parsing the dataset
-    print("Loading dataset")
-    for i, m in enumerate(tqdm(path_to_scene_layouts)):
+    # print("Loading dataset")
+    for i, m in enumerate(path_to_scene_layouts):
         save_scene_path = os.path.join(path_to_scenes, os.path.splitext(os.path.basename(m))[0] + '.pkl')
         if os.path.exists(save_scene_path):
             scenes.extend(pickle.load(open(save_scene_path, "rb")))
