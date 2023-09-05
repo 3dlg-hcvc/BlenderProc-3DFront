@@ -17,9 +17,8 @@ sys.path.append('./')
 from visualization.front3d import Threed_Front_Config
 from visualization.front3d.tools.threed_front import ThreedFront
 
-import pydevd_pycharm
-
-pydevd_pycharm.settrace('localhost', port=12345, stdoutToServer=True, stderrToServer=True)
+# import pydevd_pycharm
+# pydevd_pycharm.settrace('localhost', port=12345, stdoutToServer=True, stderrToServer=True)
 
 
 def parse_args():
@@ -276,20 +275,24 @@ if __name__ == '__main__':
                     bbox = tmp_object.get_bound_box()
                     centroid = get_centroid(bbox)
                     layout_bbox = get_corners(layout_boxes[current_bedroom_id])
+                    origin = tmp_object.get_origin()
 
                     if "Ceiling" in tmp_object.get_name():
                         objects_ceiling.append(tmp_object)
                         continue
                     if tmp_object.has_cp("room_id"):
-                        is_point_inside_box(centroid, layout_bbox)
+                        is_point_inside_box(origin, layout_bbox)
                         if tmp_object.get_cp("room_id") == current_bedroom_id:
                             traget_objects.append(tmp_object)
                         else:
                             not_target_objects.append(tmp_object)
                     else:
                         if ("Wall" in tmp_object.get_name() or "Floor" in tmp_object.get_name()):
-                            if is_point_inside_box(centroid, layout_bbox):
-                                traget_objects.append(tmp_object)
+                            # if is_point_inside_box(centroid, layout_bbox):
+                            #     traget_objects.append(tmp_object)
+                            # else:
+                            #     not_target_objects.append(tmp_object)
+                            traget_objects.append(tmp_object)
                         else:
                             not_target_objects.append(tmp_object)
 
@@ -424,6 +427,8 @@ if __name__ == '__main__':
                 bproc.writer.write_hdf5(str(room_output_folder), data,
                                         append_to_existing_output=args.append_to_existing_output)
                 print('Time elapsed: %f.' % (time() - start_time))
+
+                break
 
     except TimeoutException as e:
         print('Time is out: %s.' % scene_name)
