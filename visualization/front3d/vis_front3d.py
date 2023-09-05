@@ -33,13 +33,13 @@ if __name__ == '__main__':
         str(dataset_config.dump_dir_to_scenes),
         path_to_room_masks_dir=None,
         path_to_bounds=None,
-        json_files = json_files,
+        json_files=json_files,
         filter_fn=lambda s: s)
     print(d)
 
     '''Read rendering information'''
     # scene_render_dir = dataset_config.threed_front_rendering_dir.joinpath('.'.join(args.json_file.split('.')[:-1]))
-    scene_render_dir = Path("/home/sunxh/Xiaohao/BlenderProc-3DFront/examples/datasets/front_3d_with_improved_mat/renderings/dc7cf279-6df8-466a-8a4a-5998feb35c79_MasterBedroom-26362")
+    scene_render_dir = Path("/home/sunxh/Xiaohao/BlenderProc-3DFront/examples/datasets/front_3d_with_improved_mat/renderings/6a0e73bc-d0c4-4a38-bfb6-e083ce05ebe9_MasterBedroom-2679")
     cam_K = dataset_config.cam_K
 
     room_imgs = []
@@ -118,14 +118,17 @@ if __name__ == '__main__':
     for rm in d.rooms:
         layout_boxes.append(rm.layout_box)
 
+    label_name = dataset_config.label_names
+    label_name.append("floor")
+    label_name.append("wall")
     viser_2D = VIS_3DFRONT_2D(color_maps=room_imgs, depth_maps=room_depths, inst_info=instance_attrs, cls_maps=class_maps,
                               class_names=dataset_config.label_names, projected_inst_boxes=projected_inst_boxes)
 
-    viser_2D.draw_colors()
+    # viser_2D.draw_colors()
     # viser_2D.draw_depths()
     viser_2D.draw_cls_maps()
-    viser_2D.draw_inst_maps(type=('mask'))
-    viser_2D.draw_box2d_from_3d()
+    # viser_2D.draw_inst_maps(type=('mask'))
+    # viser_2D.draw_box2d_from_3d()
 
     # viser = VIS_3DFRONT(rooms=d.rooms, cam_K=cam_K, cam_Ts=cam_Ts, color_maps=room_imgs, depth_maps=room_depths,
     #                     inst_info=instance_attrs, layout_boxes=layout_boxes,

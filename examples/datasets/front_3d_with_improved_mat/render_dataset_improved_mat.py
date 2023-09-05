@@ -11,8 +11,15 @@ from contextlib import contextmanager
 import blenderproc.python.renderer.RendererUtility as RendererUtility
 from time import time
 
-# import pydevd_pycharm
-# pydevd_pycharm.settrace('localhost', port=12345, stdoutToServer=True, stderrToServer=True)
+import sys
+
+sys.path.append('./')
+from visualization.front3d import Threed_Front_Config
+from visualization.front3d.tools.threed_front import ThreedFront
+
+import pydevd_pycharm
+
+pydevd_pycharm.settrace('localhost', port=12345, stdoutToServer=True, stderrToServer=True)
 
 
 def parse_args():
@@ -79,6 +86,55 @@ def get_bbox_of_all_objects(loaded_objects):
     return (min_x, min_y, min_z), (max_x, max_y, max_z)
 
 
+def is_point_inside_box(point, box_corners):
+    # Get the min and max coordinates of the box in x, y, and z directions
+    min_corner = [min([corner[i] for corner in box_corners]) for i in range(3)]
+    max_corner = [max([corner[i] for corner in box_corners]) for i in range(3)]
+
+    # Check if point lies inside the box
+    for i in range(3):
+        if point[i] < min_corner[i] or point[i] > max_corner[i]:
+            return False
+    return True
+
+
+def get_corners(layout_box):
+    floor_center, x_vec, y_vec, z_vec = layout_box[0:3], layout_box[3:6], layout_box[6:9], layout_box[9:12]
+    # Calculate the 8 corners
+    corners = [
+        floor_center - x_vec - y_vec - z_vec,
+        floor_center + x_vec - y_vec - z_vec,
+        floor_center - x_vec + y_vec - z_vec,
+        floor_center + x_vec + y_vec - z_vec,
+        floor_center - x_vec - y_vec + z_vec,
+        floor_center + x_vec - y_vec + z_vec,
+        floor_center - x_vec + y_vec + z_vec,
+        floor_center + x_vec + y_vec + z_vec
+    ]
+
+    return corners
+
+
+def get_centroid(bbox_corners):
+    min_x, min_y, min_z = float('inf'), float('inf'), float('inf')
+    max_x, max_y, max_z = float('-inf'), float('-inf'), float('-inf')
+    for corner in bbox_corners:
+        min_x = min(min_x, corner[0])
+        min_y = min(min_y, corner[1])
+        min_z = min(min_z, corner[2])
+        max_x = max(max_x, corner[0])
+        max_y = max(max_y, corner[1])
+        max_z = max(max_z, corner[2])
+
+    centroid_point = [
+        (min_x + max_x) / 2,  # Center in X
+        (min_y + max_y) / 2,  # Center in Y
+        (min_z + max_z) / 2  # Center in Z
+    ]  # Center in Z
+
+    return centroid_point
+
+
 def check_name(name, category_name):
     return True if category_name in name.lower() else False
 
@@ -90,6 +146,23 @@ if __name__ == '__main__':
     front_json = front_folder.joinpath(args.front_json)
     # n_cameras = args.n_views_per_scene
     n_cameras = 1
+
+    dataset_config = Threed_Front_Config()
+    dataset_config.init_generic_categories_by_room_type('all')
+    json_file = [str(front_json).split("/")[-1]]
+    d = ThreedFront.from_dataset_directory(
+        str(dataset_config.threed_front_dir),
+        str(dataset_config.model_info_path),
+        str(dataset_config.threed_future_dir),
+        str(dataset_config.dump_dir_to_scenes),
+        path_to_room_masks_dir=None,
+        path_to_bounds=None,
+        json_files=json_file,
+        filter_fn=lambda s: s)
+
+    layout_boxes = {}
+    for rm in d.rooms:
+        layout_boxes[rm.room_id] = rm.layout_box
 
     failed_scene_name_file = output_folder.parent.joinpath('failed_scene_names.txt')
 
@@ -200,16 +273,25 @@ if __name__ == '__main__':
                 traget_objects = []
                 # only select objects from the current bedroom:
                 for tmp_object in loaded_objects:
+                    bbox = tmp_object.get_bound_box()
+                    centroid = get_centroid(bbox)
+                    layout_bbox = get_corners(layout_boxes[current_bedroom_id])
+
                     if "Ceiling" in tmp_object.get_name():
                         objects_ceiling.append(tmp_object)
                         continue
                     if tmp_object.has_cp("room_id"):
+                        is_point_inside_box(centroid, layout_bbox)
                         if tmp_object.get_cp("room_id") == current_bedroom_id:
                             traget_objects.append(tmp_object)
                         else:
                             not_target_objects.append(tmp_object)
                     else:
-                        not_target_objects.append(tmp_object)
+                        if ("Wall" in tmp_object.get_name() or "Floor" in tmp_object.get_name()):
+                            if is_point_inside_box(centroid, layout_bbox):
+                                traget_objects.append(tmp_object)
+                        else:
+                            not_target_objects.append(tmp_object)
 
                 # -------------------------------------------------------------------------
                 #          Sample materials

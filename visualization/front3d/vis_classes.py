@@ -293,7 +293,7 @@ class VIS_3DFRONT_2D(object):
     '''This class is to visualize the renderings of 3DFRONT scenes.'''
     def __init__(self, color_maps, depth_maps, inst_info, cls_maps, **kwargs):
         self.color_maps = np.array(color_maps, dtype=color_maps[0].dtype)
-        self.depth_maps = np.array(depth_maps, dtype=depth_maps[0].dtype)
+        # self.depth_maps = np.array(depth_maps, dtype=depth_maps[0].dtype)
         self.inst_info = inst_info
         self.cls_maps = np.array(cls_maps, dtype=cls_maps[0].dtype)
         self.projected_inst_boxes = kwargs.get('projected_inst_boxes', None)
