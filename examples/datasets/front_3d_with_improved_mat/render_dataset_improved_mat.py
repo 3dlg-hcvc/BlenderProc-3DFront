@@ -85,10 +85,10 @@ def get_bbox_of_all_objects(loaded_objects):
     return (min_x, min_y, min_z), (max_x, max_y, max_z)
 
 
-def is_point_inside_box(point, box_corners):
+def is_point_inside_box(point, box_corners, margin=0.01):
     # Get the min and max coordinates of the box in x, y, and z directions
-    min_corner = [min([corner[i] for corner in box_corners]) for i in range(3)]
-    max_corner = [max([corner[i] for corner in box_corners]) for i in range(3)]
+    min_corner = [min([corner[i] for corner in box_corners]) - margin for i in range(3)]
+    max_corner = [max([corner[i] for corner in box_corners]) + margin for i in range(3)]
 
     # Check if point lies inside the box
     for i in range(3):
@@ -97,19 +97,47 @@ def is_point_inside_box(point, box_corners):
     return True
 
 
+def get_box_corners(center, vectors):
+    '''
+    Convert box center and vectors to the corner-form.
+    Note x0<x1, y0<y1, z0<z1, then the 8 corners are concatenated by:
+    [[x0, y0, z0], [x0, y0, z1], [x0, y1, z0], [x0, y1, z1],
+     [x1, y0, z0], [x1, y0, z1], [x1, y1, z0], [x1, y1, z1]]
+    :return: corner points and faces related to the box
+    '''
+    corner_pnts = [None] * 8
+    corner_pnts[0] = tuple(center - vectors[0] - vectors[1] - vectors[2])
+    corner_pnts[1] = tuple(center - vectors[0] - vectors[1] + vectors[2])
+    corner_pnts[2] = tuple(center - vectors[0] + vectors[1] - vectors[2])
+    corner_pnts[3] = tuple(center - vectors[0] + vectors[1] + vectors[2])
+
+    corner_pnts[4] = tuple(center + vectors[0] - vectors[1] - vectors[2])
+    corner_pnts[5] = tuple(center + vectors[0] - vectors[1] + vectors[2])
+    corner_pnts[6] = tuple(center + vectors[0] + vectors[1] - vectors[2])
+    corner_pnts[7] = tuple(center + vectors[0] + vectors[1] + vectors[2])
+
+    return corner_pnts
+
+
+def adjust_coordinates(corners):
+    '''
+    Convert from layout_bbox's coordinate system (where y is up)
+    to scene's coordinate system (where z is up).
+    '''
+    adjusted_corners = []
+    for corner in corners:
+        x, y, z = corner
+        adjusted_corners.append([x, z, y])  # Swap y and z values
+    return np.array(adjusted_corners)
+
+
 def get_corners(layout_box):
-    floor_center, x_vec, y_vec, z_vec = layout_box[0:3], layout_box[3:6], layout_box[6:9], layout_box[9:12]
-    # Calculate the 8 corners
-    corners = [
-        floor_center - x_vec - y_vec - z_vec,
-        floor_center + x_vec - y_vec - z_vec,
-        floor_center - x_vec + y_vec - z_vec,
-        floor_center + x_vec + y_vec - z_vec,
-        floor_center - x_vec - y_vec + z_vec,
-        floor_center + x_vec - y_vec + z_vec,
-        floor_center - x_vec + y_vec + z_vec,
-        floor_center + x_vec + y_vec + z_vec
-    ]
+    floor_center, x_vec, y_vec, z_vec = layout_box[:3], layout_box[3:6], layout_box[6:9], layout_box[9:12]
+    centroid = floor_center + y_vec / 2
+    vectors = np.array([x_vec, y_vec / 2, z_vec])
+    corners = get_box_corners(centroid, vectors)
+
+    corners = adjust_coordinates(corners)
 
     return corners
 
@@ -281,20 +309,35 @@ if __name__ == '__main__':
                         objects_ceiling.append(tmp_object)
                         continue
                     if tmp_object.has_cp("room_id"):
-                        is_point_inside_box(origin, layout_bbox)
+                        # is_point_inside_box(origin, layout_bbox)
                         if tmp_object.get_cp("room_id") == current_bedroom_id:
                             traget_objects.append(tmp_object)
+
+                            # tmp_obj = bproc.object.create_primitive("SPHERE")
+                            # tmp_obj.set_scale([0.1, 0.1, 0.1])
+                            # tmp_obj.set_location(centroid)
                         else:
                             not_target_objects.append(tmp_object)
                     else:
                         if ("Wall" in tmp_object.get_name() or "Floor" in tmp_object.get_name()):
-                            # if is_point_inside_box(centroid, layout_bbox):
-                            #     traget_objects.append(tmp_object)
-                            # else:
-                            #     not_target_objects.append(tmp_object)
-                            traget_objects.append(tmp_object)
+                            if is_point_inside_box(centroid, layout_bbox, margin=0.07) and "Outer" not in tmp_object.get_name() and "Top" not in tmp_object.get_name():
+                                traget_objects.append(tmp_object)
+                            else:
+                                not_target_objects.append(tmp_object)
+                            # traget_objects.append(tmp_object)
+                            # not_target_objects.append(tmp_object)
+                            #
+                            # # to adebug draw the center of all wall and floor objects
+                            # tmp_obj = bproc.object.create_primitive("SPHERE")
+                            # tmp_obj.set_scale([0.1, 0.1, 0.1])
+                            # tmp_obj.set_location(centroid)
                         else:
                             not_target_objects.append(tmp_object)
+
+                # for corner in layout_bbox:
+                #     tmp_obj = bproc.object.create_primitive("SPHERE")
+                #     tmp_obj.set_scale([0.1, 0.1, 0.1])
+                #     tmp_obj.set_location(corner)
 
                 # -------------------------------------------------------------------------
                 #          Sample materials
@@ -400,6 +443,7 @@ if __name__ == '__main__':
                             cam2world_matrices.append(cam2world_matrix)
                             coverage_scores.append(coverage_score)
                             tries += 1
+                        cam2world_matrices.append(cam2world_matrix)
                     cam_ids = np.argsort(coverage_scores)[-cam_num_per_scene:]
                     for cam_id, cam2world_matrix in enumerate(cam2world_matrices):
                         if cam_id in cam_ids:
@@ -414,16 +458,16 @@ if __name__ == '__main__':
                 # bproc.renderer.enable_depth_output(activate_antialiasing=False)
                 # tmp_output_dir = f"output/temp/{current_bedroom_id}"
                 data = bproc.renderer.render()
-                default_values = {"location": [0, 0, 0], "cp_inst_mark": '', "cp_uid": '', "cp_jid": '',
-                                  "cp_room_id": ""}
-                data.update(bproc.renderer.render_segmap(
-                    map_by=["instance", "class", "cp_uid", "cp_jid", "cp_inst_mark", "cp_room_id", "location", "height",
-                            "orientation"],
-                    default_values=default_values))
-
-                # write camera extrinsics
-                data['cam_Ts'] = cam_Ts
-                # write the data to a .hdf5 container
+                # default_values = {"location": [0, 0, 0], "cp_inst_mark": '', "cp_uid": '', "cp_jid": '',
+                #                   "cp_room_id": ""}
+                # data.update(bproc.renderer.render_segmap(
+                #     map_by=["instance", "class", "cp_uid", "cp_jid", "cp_inst_mark", "cp_room_id", "location", "height",
+                #             "orientation"],
+                #     default_values=default_values))
+                #
+                # # write camera extrinsics
+                # data['cam_Ts'] = cam_Ts
+                # # write the data to a .hdf5 container
                 bproc.writer.write_hdf5(str(room_output_folder), data,
                                         append_to_existing_output=args.append_to_existing_output)
                 print('Time elapsed: %f.' % (time() - start_time))

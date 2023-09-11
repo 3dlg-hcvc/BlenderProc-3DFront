@@ -52,11 +52,16 @@ def process_scene(dataset_config, output_dir, scene_render_dir):
             filter_fn=lambda s: s)
         # print(d)
 
+        output_dir = f"{output_dir}/{room_id}"
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+
         '''Read rendering information'''
         cam_K = dataset_config.cam_K
 
         room_imgs = []
-        room_depths = []
+        room_heights = []
+        room_orientations = []
         cam_Ts = []
         class_maps = []
         instance_attrs = []
@@ -64,8 +69,6 @@ def process_scene(dataset_config, output_dir, scene_render_dir):
         for render_path in scene_render_dir.iterdir():
             with h5py.File(render_path) as f:
                 colors = np.array(f["colors"])[:, ::-1]
-                # depth = np.array(f["depth"])[:, ::-1]
-                # depth[depth == dataset_config.infinite_depth] = 0
                 cam_T = np.array(f["cam_Ts"])
                 class_segmap = np.array(f["class_segmaps"])[:, ::-1]
                 instance_segmap = np.array(f["instance_segmaps"])[:, ::-1]
@@ -83,7 +86,8 @@ def process_scene(dataset_config, output_dir, scene_render_dir):
 
             inst_info = []
             # Initialize maps outside the loop
-            height_map_all = np.zeros(instance_segmap.shape, dtype=np.float32)  # Assuming float32 is suitable for height
+            height_map_all = np.zeros(instance_segmap.shape,
+                                      dtype=np.float32)  # Assuming float32 is suitable for height
             orientation_map_all = np.zeros((*instance_segmap.shape, 3),
                                            dtype=np.float32)  # Assuming 3 values for orientation and float32 type
 
@@ -133,7 +137,6 @@ def process_scene(dataset_config, output_dir, scene_render_dir):
             # process cam_T from blender to ours
             cam_T = dataset_config.blender2opengl_cam(cam_T)
             room_imgs.append(colors)
-            # room_depths.append(depth)
             cam_Ts.append(cam_T)
             class_maps.append(class_segmap)
             instance_attrs.append(inst_info)
@@ -147,14 +150,16 @@ def process_scene(dataset_config, output_dir, scene_render_dir):
         # for rm in d.rooms:
         #     layout_boxes.append(rm.layout_box)
 
-        output_dir = f"{output_dir}/{room_id}"
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
-        process_2D = PROCESS_3DFRONT_2D(color_maps=room_imgs, depth_maps=room_depths, inst_info=instance_attrs,
-                                        cls_maps=class_maps,
-                                        class_names=dataset_config.label_names, projected_inst_boxes=projected_inst_boxes)
+        # save height and orientation map
+        depth_ori_output_path = os.path.join(output_dir, "depth_ori_map.npy")
+        np.save(depth_ori_output_path, object_info_map)
+
+        process_2D = PROCESS_3DFRONT_2D(color_maps=room_imgs, inst_info=instance_attrs,
+                                        cls_maps=class_maps, class_names=dataset_config.label_names,
+                                        projected_inst_boxes=projected_inst_boxes)
 
         process_2D.draw_inst_maps(type=('mask'), output_dir=output_dir)
+
     except Exception as e:
         print(f"Error in scene {scene_render_dir}: {e}")
         traceback.print_exc()
@@ -165,7 +170,7 @@ def process_scene(dataset_config, output_dir, scene_render_dir):
 if __name__ == '__main__':
     args = parse_args()
     # Create a list of directories.
-    base_rendering_path = "/home/sunxh/Xiaohao/BlenderProc-3DFront/examples/datasets/front_3d_with_improved_mat/renderings/"
+    base_rendering_path = "/home/sunxh/Xiaohao/BlenderProc-3DFront/output/renderings"
     scene_dirs = [d for d in Path(base_rendering_path).iterdir() if d.is_dir()]
 
     # Define the output directory
