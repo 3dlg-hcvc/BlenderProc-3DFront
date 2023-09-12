@@ -34,9 +34,11 @@ def parse_args():
                         help="Path to where the data should be saved")
     parser.add_argument("--n_views_per_scene", type=int, default=100,
                         help="The number of views to render in each scene.")
+    parser.add_argument("--bound_slice", default=True, type=bool,
+                        help="If we want to get boundary slices for all rooms")
     parser.add_argument("--append_to_existing_output", type=bool, default=True,
                         help="If append new renderings to the existing ones.")
-    parser.add_argument("--fov", type=int, default=90, help="Field of view of camera.")
+    parser.add_argument("--fov", type=int, default=120, help="Field of view of camera.")
     parser.add_argument("--res_x", type=int, default=480, help="Image width.")
     parser.add_argument("--res_y", type=int, default=360, help="Image height.")
     return parser.parse_args()
@@ -95,6 +97,39 @@ def is_point_inside_box(point, box_corners, margin=0.01):
         if point[i] < min_corner[i] or point[i] > max_corner[i]:
             return False
     return True
+
+
+def is_majority_of_vertices_inside_bbox(mesh, bbox_corners, threshold=0.6):
+    """
+    Check if a majority of vertices of the given mesh are inside the bounding box defined by bbox_corners.
+
+    Args:
+    - mesh (bpy.types.Object): The Blender mesh object.
+    - bbox_corners (list of list of float): List of 8 corner coordinates of the bounding box.
+    - threshold (float): Fraction of vertices that need to be inside the bbox for the mesh to be considered inside.
+
+    Returns:
+    - bool: True if the majority of mesh vertices are inside the bounding box, False otherwise.
+    """
+
+    # Convert bbox_corners to numpy array for easy calculations
+    bbox_corners = np.array(bbox_corners)
+
+    # Compute the min and max corners of the bounding box
+    bbox_min = np.min(bbox_corners, axis=0)
+    bbox_max = np.max(bbox_corners, axis=0)
+
+    inside_count = 0
+
+    # Check every vertex of the mesh
+    for vertex in mesh.vertices:
+        # Convert the vertex coordinate to world space
+        coord = vertex.co
+        # Check if the vertex is inside the bounding box
+        if all(bbox_min[i]-1e-2 <= coord[i] <= bbox_max[i]+1e-2 for i in range(3)):
+            inside_count += 1
+
+    return inside_count / len(mesh.vertices) >= threshold
 
 
 def get_box_corners(center, vectors):
@@ -160,6 +195,55 @@ def get_centroid(bbox_corners):
     ]  # Center in Z
 
     return centroid_point
+
+
+def get_planes_from_bbox(bbox):
+    # Assuming Z is up, using the right-hand rule for normals
+    normals = [
+        np.array([0, 0, -1]),  # Bottom: z0
+        np.array([0, 0, 1]),  # Top: z1
+        np.array([0, -1, 0]),  # Front: y0
+        np.array([0, 1, 0]),  # Back: y1
+        np.array([-1, 0, 0]),  # Left: x0
+        np.array([1, 0, 0])  # Right: x1
+    ]
+
+    # One point from each plane
+    points = [
+        bbox[0],  # Bottom
+        bbox[3],  # Top
+        bbox[0],  # Front
+        bbox[7],  # Back
+        bbox[0],  # Left
+        bbox[4]  # Right
+    ]
+
+    return list(zip(points, normals))
+
+
+def distance_to_plane(point, plane_point, plane_normal):
+    return plane_normal.dot(point - plane_point)
+
+
+def is_close_to_plane(obj, plane):
+    plane_point, plane_normal = plane[0], plane[1]
+    bbox = obj.get_bound_box()
+    min_distance = float('inf')
+    idx = 0
+    for tmp_idx, corner in enumerate(bbox):
+        distance = np.abs(distance_to_plane(corner, plane_point, plane_normal))
+        if distance < min_distance:
+            min_distance = distance
+            idx = tmp_idx
+    # tmp_obj = bproc.object.create_primitive("SPHERE")
+    # tmp_obj.set_scale([0.1, 0.1, 0.1])
+    # tmp_obj.set_location(bbox[idx])
+    if np.abs(min_distance) < 0.5:
+        print(obj.get_name(), "distance_to_plane: ", min_distance)
+        return True
+    else:
+        print(obj.get_name(), "distance_to_plane: ", min_distance)
+        return False
 
 
 def check_name(name, category_name):
@@ -298,6 +382,7 @@ if __name__ == '__main__':
                 objects_ceiling = []
                 not_target_objects = []
                 traget_objects = []
+                excluded_terms = ["Outer", "Top", "Bottom"]
                 # only select objects from the current bedroom:
                 for tmp_object in loaded_objects:
                     bbox = tmp_object.get_bound_box()
@@ -305,39 +390,51 @@ if __name__ == '__main__':
                     layout_bbox = get_corners(layout_boxes[current_bedroom_id])
                     origin = tmp_object.get_origin()
 
-                    if "Ceiling" in tmp_object.get_name():
-                        objects_ceiling.append(tmp_object)
-                        continue
-                    if tmp_object.has_cp("room_id"):
-                        # is_point_inside_box(origin, layout_bbox)
-                        if tmp_object.get_cp("room_id") == current_bedroom_id:
-                            traget_objects.append(tmp_object)
-
-                            # tmp_obj = bproc.object.create_primitive("SPHERE")
-                            # tmp_obj.set_scale([0.1, 0.1, 0.1])
-                            # tmp_obj.set_location(centroid)
+                    if args.bound_slice:
+                        planes = get_planes_from_bbox(layout_bbox)
+                        # tmp_obj = bproc.object.create_primitive("SPHERE")
+                        # tmp_obj.set_scale([0.1, 0.1, 0.1])
+                        # tmp_obj.set_location(planes[3][0])
+                        if tmp_object.has_cp("room_id"):
+                            if tmp_object.get_cp(
+                                    "room_id") == current_bedroom_id:
+                                if is_close_to_plane(tmp_object, planes[0]):
+                                    traget_objects.append(tmp_object)
+                                else:
+                                    not_target_objects.append(tmp_object)
+                            else:
+                                not_target_objects.append(tmp_object)
                         else:
-                            not_target_objects.append(tmp_object)
+                            if "Wall" in tmp_object.get_name() or "Floor" in tmp_object.get_name():
+                                if is_majority_of_vertices_inside_bbox(tmp_object.get_mesh(),
+                                                                       layout_bbox) and all(
+                                        term not in tmp_object.get_name() for term in excluded_terms):
+                                    traget_objects.append(tmp_object)
+                                else:
+                                    not_target_objects.append(tmp_object)
+                            else:
+                                not_target_objects.append(tmp_object)
                     else:
-                        if ("Wall" in tmp_object.get_name() or "Floor" in tmp_object.get_name()):
-                            if is_point_inside_box(centroid, layout_bbox, margin=0.07) and "Outer" not in tmp_object.get_name() and "Top" not in tmp_object.get_name():
+                        # code to select objects for bird eye view results
+                        if "Ceiling" in tmp_object.get_name():
+                            objects_ceiling.append(tmp_object)
+                            continue
+                        if tmp_object.has_cp("room_id"):
+                            # is_point_inside_box(origin, layout_bbox)
+                            if tmp_object.get_cp("room_id") == current_bedroom_id:
                                 traget_objects.append(tmp_object)
                             else:
                                 not_target_objects.append(tmp_object)
-                            # traget_objects.append(tmp_object)
-                            # not_target_objects.append(tmp_object)
-                            #
-                            # # to adebug draw the center of all wall and floor objects
-                            # tmp_obj = bproc.object.create_primitive("SPHERE")
-                            # tmp_obj.set_scale([0.1, 0.1, 0.1])
-                            # tmp_obj.set_location(centroid)
                         else:
-                            not_target_objects.append(tmp_object)
-
-                # for corner in layout_bbox:
-                #     tmp_obj = bproc.object.create_primitive("SPHERE")
-                #     tmp_obj.set_scale([0.1, 0.1, 0.1])
-                #     tmp_obj.set_location(corner)
+                            if "Wall" in tmp_object.get_name() or "Floor" in tmp_object.get_name():
+                                if is_majority_of_vertices_inside_bbox(tmp_object.get_mesh(),
+                                                                       layout_bbox) and all(
+                                        term not in tmp_object.get_name() for term in excluded_terms):
+                                    traget_objects.append(tmp_object)
+                                else:
+                                    not_target_objects.append(tmp_object)
+                            else:
+                                not_target_objects.append(tmp_object)
 
                 # -------------------------------------------------------------------------
                 #          Sample materials
@@ -423,7 +520,7 @@ if __name__ == '__main__':
 
                         bounding_box = get_bbox_of_all_objects(traget_objects)
                         highest_point = bounding_box[1][2]  # Z-coordinate of the top of the bounding box
-                        bird_eye_height = highest_point + 5  # for example,5 units/meters above the highest point
+                        bird_eye_height = highest_point + 2  # for example,5 units/meters above the highest point
 
                         location = [bounding_box[0][0] + (bounding_box[1][0] - bounding_box[0][0]) / 2,  # Center in X
                                     bounding_box[0][1] + (bounding_box[1][1] - bounding_box[0][1]) / 2,  # Center in Y
@@ -452,7 +549,7 @@ if __name__ == '__main__':
 
                 # render the whole pipeline
 
-                bproc.object.delete_multiple(objects_ceiling)
+                # bproc.object.delete_multiple(objects_ceiling)
                 bproc.object.delete_multiple(not_target_objects)
 
                 # bproc.renderer.enable_depth_output(activate_antialiasing=False)
