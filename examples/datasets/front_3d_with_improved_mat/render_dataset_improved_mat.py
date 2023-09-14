@@ -17,8 +17,8 @@ sys.path.append('./')
 from visualization.front3d import Threed_Front_Config
 from visualization.front3d.tools.threed_front import ThreedFront
 
-# import pydevd_pycharm
-# pydevd_pycharm.settrace('localhost', port=12345, stdoutToServer=True, stderrToServer=True)
+import pydevd_pycharm
+pydevd_pycharm.settrace('localhost', port=12345, stdoutToServer=True, stderrToServer=True)
 
 
 def parse_args():
@@ -258,23 +258,6 @@ if __name__ == '__main__':
     # n_cameras = args.n_views_per_scene
     n_cameras = 1
 
-    dataset_config = Threed_Front_Config()
-    dataset_config.init_generic_categories_by_room_type('all')
-    json_file = [str(front_json).split("/")[-1]]
-    d = ThreedFront.from_dataset_directory(
-        str(dataset_config.threed_front_dir),
-        str(dataset_config.model_info_path),
-        str(dataset_config.threed_future_dir),
-        str(dataset_config.dump_dir_to_scenes),
-        path_to_room_masks_dir=None,
-        path_to_bounds=None,
-        json_files=json_file,
-        filter_fn=lambda s: s)
-
-    layout_boxes = {}
-    for rm in d.rooms:
-        layout_boxes[rm.room_id] = rm.layout_box
-
     failed_scene_name_file = output_folder.parent.joinpath('failed_scene_names.txt')
 
     cam_intrinsic_path = output_folder.joinpath('cam_K.npy')
@@ -330,6 +313,23 @@ if __name__ == '__main__':
             # write camera intrinsics
             if not cam_intrinsic_path.exists():
                 np.save(str(cam_intrinsic_path), cam_K)
+
+            dataset_config = Threed_Front_Config()
+            dataset_config.init_generic_categories_by_room_type('all')
+            json_file = [str(front_json).split("/")[-1]]
+            d = ThreedFront.from_dataset_directory(
+                str(dataset_config.threed_front_dir),
+                str(dataset_config.model_info_path),
+                str(dataset_config.threed_future_dir),
+                str(dataset_config.dump_dir_to_scenes),
+                path_to_room_masks_dir=None,
+                path_to_bounds=None,
+                json_files=json_file,
+                filter_fn=lambda s: s)
+
+            layout_boxes = {}
+            for rm in d.rooms:
+                layout_boxes[rm.room_id] = rm.layout_box
 
             # read 3d future model info
             with open(future_folder.joinpath('model_info_revised.json'), 'r') as f:
