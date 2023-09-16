@@ -69,7 +69,8 @@ def set_resolution(image_width: int = None, image_height: int = None):
 
 
 def set_intrinsics_from_blender_params(lens: float = None, image_width: int = None, image_height: int = None, clip_start: float = None, clip_end: float = None, 
-                                       pixel_aspect_x: float = None, pixel_aspect_y: float = None, shift_x: int = None, shift_y: int = None, lens_unit: str = None):
+                                       pixel_aspect_x: float = None, pixel_aspect_y: float = None, shift_x: int = None, shift_y: int = None, lens_unit: str = None,
+                                       ortho_scale: float = None):
     """ Sets the camera intrinsics using blenders represenation.
 
     :param lens: Either the focal length in millimeters or the FOV in radians, depending on the given lens_unit.
@@ -124,6 +125,10 @@ def set_intrinsics_from_blender_params(lens: float = None, image_width: int = No
         cam.shift_x = shift_x
     if shift_y is not None:
         cam.shift_y = shift_y
+
+    # Set orthographic projection perspective
+    if ortho_scale is not None:
+        cam.ortho_scale = ortho_scale
 
 
 def set_stereo_parameters(convergence_mode: str, convergence_distance: float, interocular_distance: float):
