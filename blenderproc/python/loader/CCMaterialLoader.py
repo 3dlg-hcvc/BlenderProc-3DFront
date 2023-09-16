@@ -66,7 +66,7 @@ def load_ccmaterials(folder_path: str = "resources/cctextures", used_assets: lis
                     continue
             current_path = os.path.join(folder_path, asset)
             if os.path.isdir(current_path):
-                base_image_path = os.path.join(current_path, "{}_2K_Color.jpg".format(asset))
+                base_image_path = os.path.join(current_path, "{}_2K-JPG_Color.jpg".format(asset))
                 if not os.path.exists(base_image_path):
                     continue
 
