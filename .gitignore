@@ -28,3 +28,6 @@ docs/source/images/
 docs/source/examples/
 docs/source/*md
 /examples/datasets/front_3d_with_improved_mat/failed_scene_names.txt
+/examples/datasets/front_3d_with_improved_mat/3D-FRONT/
+/examples/datasets/front_3d_with_improved_mat/3D-FRONT-texture/
+/examples/datasets/front_3d_with_improved_mat/3D-FUTURE-model/

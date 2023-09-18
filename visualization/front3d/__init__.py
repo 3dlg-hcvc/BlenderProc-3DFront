@@ -9,7 +9,7 @@ from visualization.front3d.tools.base import THREED_FRONT_BEDROOM_FURNITURE, THR
 
 
 class Threed_Front_Config(Data_Process_Config):
-    def __init__(self, dataset_name='front_3d_with_improved_mat', proj_dir='examples'):
+    def __init__(self, dataset_name='front_3d_with_improved_mat', proj_dir='../'):
         super(Threed_Front_Config, self).__init__(dataset_name, proj_dir)
         self.threed_front_dir = self.root_path.joinpath('3D-FRONT')
         self.threed_future_dir = self.root_path.joinpath('3D-FUTURE-model')

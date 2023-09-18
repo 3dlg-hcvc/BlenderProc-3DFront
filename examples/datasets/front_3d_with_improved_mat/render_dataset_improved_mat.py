@@ -17,8 +17,9 @@ sys.path.append('./')
 from visualization.front3d import Threed_Front_Config
 from visualization.front3d.tools.threed_front import ThreedFront
 
-import pydevd_pycharm
-pydevd_pycharm.settrace('localhost', port=12345, stdoutToServer=True, stderrToServer=True)
+
+# import pydevd_pycharm
+# pydevd_pycharm.settrace('localhost', port=12345, stdoutToServer=True, stderrToServer=True)
 
 
 def parse_args():
@@ -225,21 +226,40 @@ def distance_to_plane(point, plane_point, plane_normal):
     return plane_normal.dot(point - plane_point)
 
 
-def plane_normal_to_euler(normal):
-    # Ensure the normal is normalized
-    normal = normal.normalized()
+def plane_normal_to_rotation(normal):
+    # Ensure the normal is a unit vector for precision
+    normal = normal / np.linalg.norm(normal)
 
-    # Compute yaw: angle between projection on XY plane and X axis
-    yaw = np.arctan2(normal.y, normal.x)
+    x, y, z = normal
 
-    # Compute pitch: angle between the normal and its projection onto the XY plane
-    xy_projection_magnitude = np.sqrt(normal.x ** 2 + normal.y ** 2)
-    pitch = np.arctan2(-normal.z, xy_projection_magnitude)
+    # Using ZYX Euler angles convention
 
-    # Roll is typically 0 for a normal (no twist around its axis)
-    roll = 0
+    # Plane normal (0, 0, 1)
+    if np.allclose(normal, [0, 0, -1]):
+        return 0, 0, np.pi / 2
 
-    return [roll, pitch, yaw]
+    # Plane normal (0, 0, -1)
+    elif np.allclose(normal, [0, 0, 1]):
+        return 0, np.pi, 0
+
+    # Plane normal (0, 1, 0)
+    elif np.allclose(normal, [0, 1, 0]):
+        return np.pi / 2, 0, 0
+
+    # Plane normal (0, -1, 0)
+    elif np.allclose(normal, [0, -1, 0]):
+        return np.pi / 2, 0, np.pi
+
+    # Plane normal (1, 0, 0)
+    elif np.allclose(normal, [1, 0, 0]):
+        return np.pi / 2, 0, 3 * np.pi / 2
+
+    # Plane normal (-1, 0, 0)
+    elif np.allclose(normal, [-1, 0, 0]):
+        return np.pi / 2, 0, np.pi / 2
+
+    else:
+        raise ValueError("Unsupported plane normal")
 
 
 def is_close_to_plane(obj, plane):
@@ -265,6 +285,131 @@ def is_close_to_plane(obj, plane):
 
 def check_name(name, category_name):
     return True if category_name in name.lower() else False
+
+
+def room_process_by_plane(plane, target_objects, loaded_objects, args):
+    bbox_height = []
+    bbox_height_not_target_furniture = []
+    # only select objects from the current bedroom:
+
+    for tmp_object in target_objects:
+        bbox = tmp_object.get_bound_box()
+        if tmp_object.has_cp("room_id"):
+            if is_close_to_plane(tmp_object, plane):
+                bbox_height.append(max(bbox[:, 2]))
+            else:
+                bbox_height_not_target_furniture.append(min(bbox[:, 2]))
+
+    # -------------------------------------------------------------------------
+    #          Sample camera extrinsics
+    # -------------------------------------------------------------------------
+    # Init sampler for sampling locations inside the loaded front3D house
+    point_sampler = bproc.sampler.Front3DPointInRoomSampler(target_objects)
+
+    # Init bvh tree containing all mesh objects
+    bvh_tree = bproc.object.create_bvh_tree_multi_objects(
+        [o for o in target_objects if isinstance(o, bproc.types.MeshObject)])
+
+    # filter some objects from the loaded objects, which are later used in calculating an interesting score
+    interest_score_setting = {'ceiling': 0, 'column': 0, 'customizedpersonalizedmodel': 0, 'beam': 0,
+                              'wallinner': 0,
+                              'slabside': 0, 'customizedfixedfurniture': 0, 'cabinet/lightband': 0,
+                              'window': 0,
+                              'hole': 0, 'customizedplatform': 0, 'baseboard': 0,
+                              'customizedbackgroundmodel': 0,
+                              'front': 0, 'walltop': 0, 'wallouter': 0, 'cornice': 0, 'sewerpipe': 0,
+                              'smartcustomizedceiling': 0, 'customizedfeaturewall': 0,
+                              'customizedfurniture': 0,
+                              'slabtop': 0, 'baywindow': 0, 'door': 0, 'customized_wainscot': 0,
+                              'slabbottom': 0,
+                              'back': 0, 'flue': 0, 'extrusioncustomizedceilingmodel': 0,
+                              'extrusioncustomizedbackgroundwall': 0, 'floor': 0, 'lightband': 0,
+                              'customizedceiling': 0, 'void': 0, 'pocket': 0, 'wallbottom': 0, 'chair': 10,
+                              'sofa': 10,
+                              'table': 10, 'bed': 10}
+    special_objects = []
+    special_object_scores = {}
+    for category_name, category_score in interest_score_setting.items():
+        special_objects_per_category = [obj.get_cp("category_id") for obj in target_objects if
+                                        check_name(obj.get_name(), category_name)]
+        special_objects.extend(special_objects_per_category)
+        unique_cat_ids = set(special_objects_per_category)
+        for cat_id in unique_cat_ids:
+            special_object_scores[cat_id] = category_score
+
+    # sample camera poses
+    proximity_checks = {}
+    cam_Ts = []
+    floor_areas = np.array(point_sampler.get_floor_areas())
+    cam_nums = np.ceil(floor_areas / floor_areas.sum() * n_cameras).astype(np.int16)
+    n_tries = cam_nums * 3
+
+    for floor_id, cam_num_per_scene in enumerate(cam_nums):
+        cam2world_matrices = []
+        coverage_scores = []
+        tries = 0
+        while tries < n_tries[floor_id]:
+            # sample cam loc inside house
+            # height = np.random.uniform(1.4, 1.8)
+            # location = point_sampler.sample_by_floor_id(height, floor_id=floor_id)
+            # # Sample rotation (fix around X and Y axis)
+            # rotation = np.random.uniform([1.2217, 0, 0], [1.338, 0, np.pi * 2])  # pitch, roll, yaw
+
+            bounding_box = get_bbox_of_all_objects(target_objects)
+            # highest_point = bounding_box[1][2]  # Z-coordinate of the top of the bounding box
+            # bird_eye_height = highest_point + 2  # for example,5 units/meters above the highest point
+            if min(bbox_height_not_target_furniture) > max(bbox_height):
+                plane_height = max(bbox_height)
+            else:
+                plane_height = min(bbox_height_not_target_furniture)
+
+            location = [bounding_box[0][0] + (bounding_box[1][0] - bounding_box[0][0]) / 2,  # Center in X
+                        bounding_box[0][1] + (bounding_box[1][1] - bounding_box[0][1]) / 2,  # Center in Y
+                        plane_height]  # Above the room
+            normal = plane[1]
+            rotation = plane_normal_to_rotation(normal)
+
+            cam2world_matrix = bproc.math.build_transformation_mat(location, rotation)
+
+            # Check that obstacles are at least 1 meter away from the camera and have an average distance between 2.5 and 3.5
+            # meters and make sure that no background is visible, finally make sure the view is interesting enough
+            obstacle_check = bproc.camera.perform_obstacle_in_view_check(cam2world_matrix, proximity_checks,
+                                                                         bvh_tree)
+            coverage_score = bproc.camera.scene_coverage_score(cam2world_matrix, special_objects,
+                                                               special_objects_weight=special_object_scores)
+            # for sanity check
+            if obstacle_check and coverage_score >= 0.0:
+                cam2world_matrices.append(cam2world_matrix)
+                coverage_scores.append(coverage_score)
+                tries += 1
+            cam2world_matrices.append(cam2world_matrix)
+        cam_ids = np.argsort(coverage_scores)[-cam_num_per_scene:]
+        for cam_id, cam2world_matrix in enumerate(cam2world_matrices):
+            if cam_id in cam_ids:
+                bproc.camera.add_camera_pose(cam2world_matrix)
+                cam_Ts.append(cam2world_matrix)
+
+    # render the whole pipeline
+    print("plane height ====================", plane_height)
+    bproc.camera.set_intrinsics_from_blender_params(lens=args.fov / 180 * np.pi, image_width=args.res_x,
+                                                    image_height=args.res_y, clip_start=0.01, clip_end=5,
+                                                    lens_unit="FOV", ortho_scale=8)
+
+    # bproc.renderer.enable_depth_output(activate_antialiasing=False)
+    # tmp_output_dir = f"output/temp/{current_bedroom_id}"
+    data = bproc.renderer.render()
+    default_values = {"location": [0, 0, 0], "cp_inst_mark": '', "cp_uid": '', "cp_jid": '',
+                      "cp_room_id": ""}
+    data.update(bproc.renderer.render_segmap(
+        map_by=["instance", "class", "cp_uid", "cp_jid", "cp_inst_mark", "cp_room_id", "location", "height",
+                "orientation"],
+        default_values=default_values))
+
+    # # write camera extrinsics
+    data['cam_Ts'] = cam_Ts
+    # # write the data to a .hdf5 container
+    bproc.writer.write_hdf5(str(room_output_folder), data,
+                            append_to_existing_output=args.append_to_existing_output)
 
 
 if __name__ == '__main__':
@@ -396,24 +541,20 @@ if __name__ == '__main__':
                     label_mapping=mapping,
                     model_id_to_label=model_id_to_label)
 
-                objects_ceiling = []
+                layout_bbox = get_corners(layout_boxes[current_bedroom_id])
+
+                planes = get_planes_from_bbox(layout_bbox)
+
                 not_target_objects = []
-                traget_objects = []
+                target_objects = []
                 excluded_terms = ["Outer", "Top", "Bottom"]
-                bbox_height = []
-                bbox_height_not_target_furniture = []
-                # only select objects from the current bedroom:
+
                 for tmp_object in loaded_objects:
                     bbox = tmp_object.get_bound_box()
                     centroid = get_centroid(bbox)
-                    layout_bbox = get_corners(layout_boxes[current_bedroom_id])
                     origin = tmp_object.get_origin()
 
                     if args.bound_slice:
-                        planes = get_planes_from_bbox(layout_bbox)
-                        # tmp_obj = bproc.object.create_primitive("SPHERE")
-                        # tmp_obj.set_scale([0.1, 0.1, 0.1])
-                        # tmp_obj.set_location(planes[3][0])
                         if tmp_object.has_cp("room_id"):
                             if tmp_object.get_cp(
                                     "room_id") == current_bedroom_id:
@@ -421,48 +562,21 @@ if __name__ == '__main__':
                                 #     traget_objects.append(tmp_object)
                                 # else:
                                 #     not_target_objects.append(tmp_object)
-                                traget_objects.append(tmp_object)
-                                if is_close_to_plane(tmp_object, planes[1]):
-                                    bbox_height.append(max(bbox[:, 2]))
-                                else:
-                                    bbox_height_not_target_furniture.append(min(bbox[:, 2]))
-
+                                target_objects.append(tmp_object)
                             else:
                                 not_target_objects.append(tmp_object)
                         else:
-                            if "Wall" in tmp_object.get_name() or "Floor" in tmp_object.get_name():
+                            if "Wall" in tmp_object.get_name() or "Floor" in tmp_object.get_name() or "Ceiling" in tmp_object.get_name():
                                 if is_majority_of_vertices_inside_bbox(tmp_object.get_mesh(),
-                                                                       layout_bbox) and all(
-                                    term not in tmp_object.get_name() for term in excluded_terms):
-                                    traget_objects.append(tmp_object)
-                                else:
-                                    not_target_objects.append(tmp_object)
-                            else:
-                                not_target_objects.append(tmp_object)
-                    else:
-                        # code to select objects for bird eye view results
-                        if "Ceiling" in tmp_object.get_name():
-                            objects_ceiling.append(tmp_object)
-                            continue
-                        if tmp_object.has_cp("room_id"):
-                            # is_point_inside_box(origin, layout_bbox)
-                            if tmp_object.get_cp("room_id") == current_bedroom_id:
-                                traget_objects.append(tmp_object)
-                            else:
-                                not_target_objects.append(tmp_object)
-                        else:
-                            if "Wall" in tmp_object.get_name() or "Floor" in tmp_object.get_name():
-                                if is_majority_of_vertices_inside_bbox(tmp_object.get_mesh(),
-                                                                       layout_bbox) and all(
-                                    term not in tmp_object.get_name() for term in excluded_terms):
-                                    traget_objects.append(tmp_object)
+                                                                       layout_bbox) and all(term not in tmp_object.get_name() for term in excluded_terms):
+                                    target_objects.append(tmp_object)
                                 else:
                                     not_target_objects.append(tmp_object)
                             else:
                                 not_target_objects.append(tmp_object)
 
-                # -------------------------------------------------------------------------
                 #          Sample materials
+                # -------------------------------------------------------------------------
                 # -------------------------------------------------------------------------
                 cc_materials = bproc.loader.load_ccmaterials(args.cc_material_folder,
                                                              ["Bricks", "Wood", "Carpet", "Tile", "Marble"])
@@ -473,7 +587,8 @@ if __name__ == '__main__':
                     for i in range(len(floor.get_materials())):
                         floor.set_material(i, random.choice(cc_materials))
 
-                baseboards_and_doors = bproc.filter.by_attr(loaded_objects, "name", "Baseboard.*|Door.*", regex=True)
+                baseboards_and_doors = bproc.filter.by_attr(loaded_objects, "name", "Baseboard.*|Door.*",
+                                                            regex=True)
                 wood_floor_materials = bproc.filter.by_cp(cc_materials, "asset_name", "WoodFloor.*", regex=True)
                 for obj in baseboards_and_doors:
                     # For each material of the object
@@ -488,121 +603,16 @@ if __name__ == '__main__':
                     for i in range(len(wall.get_materials())):
                         wall.set_material(i, random.choice(marble_materials))
 
-                # -------------------------------------------------------------------------
-                #          Sample camera extrinsics
-                # -------------------------------------------------------------------------
-                # Init sampler for sampling locations inside the loaded front3D house
-                point_sampler = bproc.sampler.Front3DPointInRoomSampler(loaded_objects)
-
-                # Init bvh tree containing all mesh objects
-                bvh_tree = bproc.object.create_bvh_tree_multi_objects(
-                    [o for o in loaded_objects if isinstance(o, bproc.types.MeshObject)])
-
-                # filter some objects from the loaded objects, which are later used in calculating an interesting score
-                interest_score_setting = {'ceiling': 0, 'column': 0, 'customizedpersonalizedmodel': 0, 'beam': 0,
-                                          'wallinner': 0,
-                                          'slabside': 0, 'customizedfixedfurniture': 0, 'cabinet/lightband': 0,
-                                          'window': 0,
-                                          'hole': 0, 'customizedplatform': 0, 'baseboard': 0,
-                                          'customizedbackgroundmodel': 0,
-                                          'front': 0, 'walltop': 0, 'wallouter': 0, 'cornice': 0, 'sewerpipe': 0,
-                                          'smartcustomizedceiling': 0, 'customizedfeaturewall': 0,
-                                          'customizedfurniture': 0,
-                                          'slabtop': 0, 'baywindow': 0, 'door': 0, 'customized_wainscot': 0,
-                                          'slabbottom': 0,
-                                          'back': 0, 'flue': 0, 'extrusioncustomizedceilingmodel': 0,
-                                          'extrusioncustomizedbackgroundwall': 0, 'floor': 0, 'lightband': 0,
-                                          'customizedceiling': 0, 'void': 0, 'pocket': 0, 'wallbottom': 0, 'chair': 10,
-                                          'sofa': 10,
-                                          'table': 10, 'bed': 10}
-                special_objects = []
-                special_object_scores = {}
-                for category_name, category_score in interest_score_setting.items():
-                    special_objects_per_category = [obj.get_cp("category_id") for obj in loaded_objects if
-                                                    check_name(obj.get_name(), category_name)]
-                    special_objects.extend(special_objects_per_category)
-                    unique_cat_ids = set(special_objects_per_category)
-                    for cat_id in unique_cat_ids:
-                        special_object_scores[cat_id] = category_score
-
-                # sample camera poses
-                proximity_checks = {}
-                cam_Ts = []
-                floor_areas = np.array(point_sampler.get_floor_areas())
-                cam_nums = np.ceil(floor_areas / floor_areas.sum() * n_cameras).astype(np.int16)
-                n_tries = cam_nums * 3
-
-                for floor_id, cam_num_per_scene in enumerate(cam_nums):
-                    cam2world_matrices = []
-                    coverage_scores = []
-                    tries = 0
-                    while tries < n_tries[floor_id]:
-                        # sample cam loc inside house
-                        height = np.random.uniform(1.4, 1.8)
-                        # location = point_sampler.sample_by_floor_id(height, floor_id=floor_id)
-                        # # Sample rotation (fix around X and Y axis)
-                        # rotation = np.random.uniform([1.2217, 0, 0], [1.338, 0, np.pi * 2])  # pitch, roll, yaw
-
-                        bounding_box = get_bbox_of_all_objects(traget_objects)
-                        highest_point = bounding_box[1][2]  # Z-coordinate of the top of the bounding box
-                        # bird_eye_height = highest_point + 2  # for example,5 units/meters above the highest point
-                        if min(bbox_height_not_target_furniture) > max(bbox_height):
-                            plane_height = max(bbox_height)
-                        else:
-                            plane_height = min(bbox_height_not_target_furniture)
-
-                        location = [bounding_box[0][0] + (bounding_box[1][0] - bounding_box[0][0]) / 2,  # Center in X
-                                    bounding_box[0][1] + (bounding_box[1][1] - bounding_box[0][1]) / 2,  # Center in Y
-                                    plane_height]  # Above the room
-                        rotation = [0, 0, np.pi / 2]  # pitch, roll, yaw for bird's eye view
-
-                        cam2world_matrix = bproc.math.build_transformation_mat(location, rotation)
-
-                        # Check that obstacles are at least 1 meter away from the camera and have an average distance between 2.5 and 3.5
-                        # meters and make sure that no background is visible, finally make sure the view is interesting enough
-                        obstacle_check = bproc.camera.perform_obstacle_in_view_check(cam2world_matrix, proximity_checks,
-                                                                                     bvh_tree)
-                        coverage_score = bproc.camera.scene_coverage_score(cam2world_matrix, special_objects,
-                                                                           special_objects_weight=special_object_scores)
-                        # for sanity check
-                        if obstacle_check and coverage_score >= 0.0:
-                            cam2world_matrices.append(cam2world_matrix)
-                            coverage_scores.append(coverage_score)
-                            tries += 1
-                        cam2world_matrices.append(cam2world_matrix)
-                    cam_ids = np.argsort(coverage_scores)[-cam_num_per_scene:]
-                    for cam_id, cam2world_matrix in enumerate(cam2world_matrices):
-                        if cam_id in cam_ids:
-                            bproc.camera.add_camera_pose(cam2world_matrix)
-                            cam_Ts.append(cam2world_matrix)
-
-                # render the whole pipeline
-                print("plane height ====================", plane_height)
-                bproc.camera.set_intrinsics_from_blender_params(lens=args.fov / 180 * np.pi, image_width=args.res_x,
-                                                                image_height=args.res_y, clip_start=0.01, clip_end=5,
-                                                                lens_unit="FOV", ortho_scale=5)
-
-                # bproc.object.delete_multiple(objects_ceiling)
                 bproc.object.delete_multiple(not_target_objects)
 
-                # bproc.renderer.enable_depth_output(activate_antialiasing=False)
-                # tmp_output_dir = f"output/temp/{current_bedroom_id}"
-                data = bproc.renderer.render()
-                default_values = {"location": [0, 0, 0], "cp_inst_mark": '', "cp_uid": '', "cp_jid": '',
-                                  "cp_room_id": ""}
-                data.update(bproc.renderer.render_segmap(
-                    map_by=["instance", "class", "cp_uid", "cp_jid", "cp_inst_mark", "cp_room_id", "location", "height",
-                            "orientation"],
-                    default_values=default_values))
-                #
-                # # write camera extrinsics
-                data['cam_Ts'] = cam_Ts
-                # # write the data to a .hdf5 container
-                bproc.writer.write_hdf5(str(room_output_folder), data,
-                                        append_to_existing_output=args.append_to_existing_output)
-                print('Time elapsed: %f.' % (time() - start_time))
+                # for plane in planes:
+                #     room_process_by_plane(plane, current_bedroom_id, loaded_objects, layout_bbox, args)
+                #     break
+                room_process_by_plane(planes[0], target_objects, loaded_objects, args)
 
-                # break
+                break
+
+            print('Time elapsed: %f.' % (time() - start_time))
 
     except TimeoutException as e:
         print('Time is out: %s.' % scene_name)
