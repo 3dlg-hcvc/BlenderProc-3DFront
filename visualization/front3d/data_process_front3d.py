@@ -19,15 +19,28 @@ from tqdm import tqdm
 from functools import partial
 from tqdm.contrib.concurrent import process_map
 import traceback
+import cv2
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Visualize a 3D-FRONT room.")
     parser.add_argument("--output_dir", type=str, default='output/processed_front3d_data',
                         help="The output directory")
-    parser.add_argument("--debug", default=False, action="store",
+    parser.add_argument("--debug", default=True, action="store",
                         help="The output directory")
     return parser.parse_args()
+
+
+def scale_to_0_255(arr):
+    # Compute the current minimum and maximum values of the array
+    min_val = np.min(arr)
+    max_val = np.max(arr)
+
+    # Scale the array to [0, 255]
+    scaled_arr = 255 * (arr - min_val) / (max_val - min_val)
+
+    # Convert the scaled array to unsigned 8-bit integer type
+    return scaled_arr.astype(np.uint8)
 
 
 def process_scene(dataset_config, output_dir, scene_render_dir):
@@ -81,8 +94,11 @@ def process_scene(dataset_config, output_dir, scene_render_dir):
             class_segmap = label_mapping_2D(class_segmap, dataset_config.label_mapping)
 
             #### get instance info
+            # inst_marks = set([inst['inst_mark'] for inst in instance_attribute_mapping if
+            #                   inst['inst_mark'] != '' and 'layout' not in inst['inst_mark']])
+
             inst_marks = set([inst['inst_mark'] for inst in instance_attribute_mapping if
-                              inst['inst_mark'] != '' and 'layout' not in inst['inst_mark']])
+                              inst['inst_mark'] != ''])
 
             inst_info = []
             # Initialize maps outside the loop
@@ -98,7 +114,6 @@ def process_scene(dataset_config, output_dir, scene_render_dir):
                 category_id = dataset_config.label_mapping[parts[0]['category_id']]
                 if category_id == 0:
                     continue
-
                 # get 2D masks
                 part_indices = [part['idx'] for part in parts]
                 inst_mask = np.sum([instance_segmap == idx for idx in part_indices], axis=0, dtype=bool)
@@ -152,6 +167,12 @@ def process_scene(dataset_config, output_dir, scene_render_dir):
 
         # save height and orientation map
         depth_ori_output_path = os.path.join(output_dir, "depth_ori_map.npy")
+        cv2.imwrite(
+            '/home/sunxh/Xiaohao/slice_layout_gen/BlenderProc-3DFront/output/processed_front3d_data/6a0e73bc-d0c4-4a38-bfb6-e083ce05ebe9_SecondBedroom-1415/height.png',
+            scale_to_0_255(height_map_all))
+        cv2.imwrite(
+            '/home/sunxh/Xiaohao/slice_layout_gen/BlenderProc-3DFront/output/processed_front3d_data/6a0e73bc-d0c4-4a38-bfb6-e083ce05ebe9_SecondBedroom-1415/orientation.png',
+            scale_to_0_255(orientation_map_all))
         np.save(depth_ori_output_path, object_info_map)
 
         process_2D = PROCESS_3DFRONT_2D(color_maps=room_imgs, inst_info=instance_attrs,
@@ -159,6 +180,7 @@ def process_scene(dataset_config, output_dir, scene_render_dir):
                                         projected_inst_boxes=projected_inst_boxes)
 
         process_2D.draw_inst_maps(type=('mask'), output_dir=output_dir)
+        process_2D.draw_colors()
 
     except Exception as e:
         print(f"Error in scene {scene_render_dir}: {e}")
@@ -170,7 +192,7 @@ def process_scene(dataset_config, output_dir, scene_render_dir):
 if __name__ == '__main__':
     args = parse_args()
     # Create a list of directories.
-    base_rendering_path = "/home/sunxh/Xiaohao/BlenderProc-3DFront/output/renderings"
+    base_rendering_path = "/home/sunxh/Xiaohao/slice_layout_gen/BlenderProc-3DFront/examples/datasets/front_3d_with_improved_mat/renderings"
     scene_dirs = [d for d in Path(base_rendering_path).iterdir() if d.is_dir()]
 
     # Define the output directory

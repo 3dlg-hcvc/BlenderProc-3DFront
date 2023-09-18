@@ -128,6 +128,7 @@ def set_intrinsics_from_blender_params(lens: float = None, image_width: int = No
 
     # Set orthographic projection perspective
     if ortho_scale is not None:
+        cam.type = "ORTHO"
         cam.ortho_scale = ortho_scale
 
 

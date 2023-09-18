@@ -126,7 +126,7 @@ def is_majority_of_vertices_inside_bbox(mesh, bbox_corners, threshold=0.6):
         # Convert the vertex coordinate to world space
         coord = vertex.co
         # Check if the vertex is inside the bounding box
-        if all(bbox_min[i]-1e-2 <= coord[i] <= bbox_max[i]+1e-2 for i in range(3)):
+        if all(bbox_min[i] - 1e-2 <= coord[i] <= bbox_max[i] + 1e-2 for i in range(3)):
             inside_count += 1
 
     return inside_count / len(mesh.vertices) >= threshold
@@ -223,6 +223,23 @@ def get_planes_from_bbox(bbox):
 
 def distance_to_plane(point, plane_point, plane_normal):
     return plane_normal.dot(point - plane_point)
+
+
+def plane_normal_to_euler(normal):
+    # Ensure the normal is normalized
+    normal = normal.normalized()
+
+    # Compute yaw: angle between projection on XY plane and X axis
+    yaw = np.arctan2(normal.y, normal.x)
+
+    # Compute pitch: angle between the normal and its projection onto the XY plane
+    xy_projection_magnitude = np.sqrt(normal.x ** 2 + normal.y ** 2)
+    pitch = np.arctan2(-normal.z, xy_projection_magnitude)
+
+    # Roll is typically 0 for a normal (no twist around its axis)
+    roll = 0
+
+    return [roll, pitch, yaw]
 
 
 def is_close_to_plane(obj, plane):
@@ -364,12 +381,12 @@ if __name__ == '__main__':
                 # set the light bounces
                 bproc.renderer.set_light_bounces(diffuse_bounces=200, glossy_bounces=200, max_bounces=200,
                                                  transmission_bounces=200, transparent_max_bounces=200)
-                # set intrinsic parameters
-                bproc.camera.set_intrinsics_from_blender_params(lens=args.fov / 180 * np.pi, image_width=args.res_x,
-                                                                image_height=args.res_y,
-                                                                lens_unit="FOV")
+                # # set intrinsic parameters
+                # bproc.camera.set_intrinsics_from_blender_params(lens=args.fov / 180 * np.pi, image_width=args.res_x,
+                #                                                 image_height=args.res_y, clip_start=0.01, clip_end=5,
+                #                                                 lens_unit="FOV", ortho_scale=10)
 
-                cam_K = bproc.camera.get_intrinsics_as_K_matrix()
+                # cam_K = bproc.camera.get_intrinsics_as_K_matrix()
 
                 # load the front 3D objects again
                 loaded_objects = bproc.loader.load_front3d(
@@ -383,6 +400,8 @@ if __name__ == '__main__':
                 not_target_objects = []
                 traget_objects = []
                 excluded_terms = ["Outer", "Top", "Bottom"]
+                bbox_height = []
+                bbox_height_not_target_furniture = []
                 # only select objects from the current bedroom:
                 for tmp_object in loaded_objects:
                     bbox = tmp_object.get_bound_box()
@@ -398,17 +417,23 @@ if __name__ == '__main__':
                         if tmp_object.has_cp("room_id"):
                             if tmp_object.get_cp(
                                     "room_id") == current_bedroom_id:
-                                if is_close_to_plane(tmp_object, planes[0]):
-                                    traget_objects.append(tmp_object)
+                                # if is_close_to_plane(tmp_object, planes[0]):
+                                #     traget_objects.append(tmp_object)
+                                # else:
+                                #     not_target_objects.append(tmp_object)
+                                traget_objects.append(tmp_object)
+                                if is_close_to_plane(tmp_object, planes[1]):
+                                    bbox_height.append(max(bbox[:, 2]))
                                 else:
-                                    not_target_objects.append(tmp_object)
+                                    bbox_height_not_target_furniture.append(min(bbox[:, 2]))
+
                             else:
                                 not_target_objects.append(tmp_object)
                         else:
                             if "Wall" in tmp_object.get_name() or "Floor" in tmp_object.get_name():
                                 if is_majority_of_vertices_inside_bbox(tmp_object.get_mesh(),
                                                                        layout_bbox) and all(
-                                        term not in tmp_object.get_name() for term in excluded_terms):
+                                    term not in tmp_object.get_name() for term in excluded_terms):
                                     traget_objects.append(tmp_object)
                                 else:
                                     not_target_objects.append(tmp_object)
@@ -429,7 +454,7 @@ if __name__ == '__main__':
                             if "Wall" in tmp_object.get_name() or "Floor" in tmp_object.get_name():
                                 if is_majority_of_vertices_inside_bbox(tmp_object.get_mesh(),
                                                                        layout_bbox) and all(
-                                        term not in tmp_object.get_name() for term in excluded_terms):
+                                    term not in tmp_object.get_name() for term in excluded_terms):
                                     traget_objects.append(tmp_object)
                                 else:
                                     not_target_objects.append(tmp_object)
@@ -520,11 +545,15 @@ if __name__ == '__main__':
 
                         bounding_box = get_bbox_of_all_objects(traget_objects)
                         highest_point = bounding_box[1][2]  # Z-coordinate of the top of the bounding box
-                        bird_eye_height = highest_point + 2  # for example,5 units/meters above the highest point
+                        # bird_eye_height = highest_point + 2  # for example,5 units/meters above the highest point
+                        if min(bbox_height_not_target_furniture) > max(bbox_height):
+                            plane_height = max(bbox_height)
+                        else:
+                            plane_height = min(bbox_height_not_target_furniture)
 
                         location = [bounding_box[0][0] + (bounding_box[1][0] - bounding_box[0][0]) / 2,  # Center in X
                                     bounding_box[0][1] + (bounding_box[1][1] - bounding_box[0][1]) / 2,  # Center in Y
-                                    bird_eye_height]  # Above the room
+                                    plane_height]  # Above the room
                         rotation = [0, 0, np.pi / 2]  # pitch, roll, yaw for bird's eye view
 
                         cam2world_matrix = bproc.math.build_transformation_mat(location, rotation)
@@ -548,6 +577,10 @@ if __name__ == '__main__':
                             cam_Ts.append(cam2world_matrix)
 
                 # render the whole pipeline
+                print("plane height ====================", plane_height)
+                bproc.camera.set_intrinsics_from_blender_params(lens=args.fov / 180 * np.pi, image_width=args.res_x,
+                                                                image_height=args.res_y, clip_start=0.01, clip_end=5,
+                                                                lens_unit="FOV", ortho_scale=5)
 
                 # bproc.object.delete_multiple(objects_ceiling)
                 bproc.object.delete_multiple(not_target_objects)
@@ -555,21 +588,21 @@ if __name__ == '__main__':
                 # bproc.renderer.enable_depth_output(activate_antialiasing=False)
                 # tmp_output_dir = f"output/temp/{current_bedroom_id}"
                 data = bproc.renderer.render()
-                # default_values = {"location": [0, 0, 0], "cp_inst_mark": '', "cp_uid": '', "cp_jid": '',
-                #                   "cp_room_id": ""}
-                # data.update(bproc.renderer.render_segmap(
-                #     map_by=["instance", "class", "cp_uid", "cp_jid", "cp_inst_mark", "cp_room_id", "location", "height",
-                #             "orientation"],
-                #     default_values=default_values))
+                default_values = {"location": [0, 0, 0], "cp_inst_mark": '', "cp_uid": '', "cp_jid": '',
+                                  "cp_room_id": ""}
+                data.update(bproc.renderer.render_segmap(
+                    map_by=["instance", "class", "cp_uid", "cp_jid", "cp_inst_mark", "cp_room_id", "location", "height",
+                            "orientation"],
+                    default_values=default_values))
                 #
                 # # write camera extrinsics
-                # data['cam_Ts'] = cam_Ts
+                data['cam_Ts'] = cam_Ts
                 # # write the data to a .hdf5 container
                 bproc.writer.write_hdf5(str(room_output_folder), data,
                                         append_to_existing_output=args.append_to_existing_output)
                 print('Time elapsed: %f.' % (time() - start_time))
 
-                break
+                # break
 
     except TimeoutException as e:
         print('Time is out: %s.' % scene_name)

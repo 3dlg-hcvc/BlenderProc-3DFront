@@ -72,6 +72,8 @@ class Threed_Front_Config(Data_Process_Config):
         assert not len([threed_label for threed_label in generic_mapping.keys() if
                         threed_label not in self.raw_threed_front_mapping.values()])
 
+        generic_mapping["floor"] = "floor"
+
         bg_label = 'void'
         raw_label_to_generic_label = dict()
         for raw_3dfront_id, raw_3dfront_label in self.raw_threed_front_mapping.items():
