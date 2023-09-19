@@ -18,8 +18,8 @@ from visualization.front3d import Threed_Front_Config
 from visualization.front3d.tools.threed_front import ThreedFront
 
 
-# import pydevd_pycharm
-# pydevd_pycharm.settrace('localhost', port=12345, stdoutToServer=True, stderrToServer=True)
+import pydevd_pycharm
+pydevd_pycharm.settrace('localhost', port=12345, stdoutToServer=True, stderrToServer=True)
 
 
 def parse_args():
@@ -283,6 +283,20 @@ def is_close_to_plane(obj, plane):
         return False
 
 
+def min_max_distance_to_plane(plane, bbox):
+    plane_point, plane_normal = plane[0], plane[1]
+    max_distance = float('-inf')
+    min_distance = float('inf')
+    idx = 0
+    for tmp_idx, corner in enumerate(bbox):
+        distance = np.abs(distance_to_plane(corner, plane_point, plane_normal))
+        if distance > max_distance:
+            max_distance = distance
+        if distance < min_distance:
+            min_distance = distance
+    return max_distance, min_distance
+
+
 def check_name(name, category_name):
     return True if category_name in name.lower() else False
 
@@ -296,9 +310,15 @@ def room_process_by_plane(plane, target_objects, loaded_objects, args):
         bbox = tmp_object.get_bound_box()
         if tmp_object.has_cp("room_id"):
             if is_close_to_plane(tmp_object, plane):
-                bbox_height.append(max(bbox[:, 2]))
+                # bbox_height.append(max(bbox[:, 2]))
+                max_distance, min_distance = min_max_distance_to_plane(plane, bbox)
+                bbox_height.append(max_distance)
+                tmp_object.blender_obj["distance"] = max_distance
             else:
-                bbox_height_not_target_furniture.append(min(bbox[:, 2]))
+                max_distance, min_distance = min_max_distance_to_plane(plane, bbox)
+                # bbox_height_not_target_furniture.append(min(bbox[:, 2]))
+                bbox_height_not_target_furniture.append(min_distance)
+                tmp_object.blender_obj["distance"] = max_distance
 
     # -------------------------------------------------------------------------
     #          Sample camera extrinsics
@@ -342,7 +362,7 @@ def room_process_by_plane(plane, target_objects, loaded_objects, args):
     cam_Ts = []
     floor_areas = np.array(point_sampler.get_floor_areas())
     cam_nums = np.ceil(floor_areas / floor_areas.sum() * n_cameras).astype(np.int16)
-    n_tries = cam_nums * 3
+    n_tries = cam_nums
 
     for floor_id, cam_num_per_scene in enumerate(cam_nums):
         cam2world_matrices = []
@@ -362,6 +382,8 @@ def room_process_by_plane(plane, target_objects, loaded_objects, args):
                 plane_height = max(bbox_height)
             else:
                 plane_height = min(bbox_height_not_target_furniture)
+
+            print("plane height ====================", plane_height)
 
             location = [bounding_box[0][0] + (bounding_box[1][0] - bounding_box[0][0]) / 2,  # Center in X
                         bounding_box[0][1] + (bounding_box[1][1] - bounding_box[0][1]) / 2,  # Center in Y
@@ -390,7 +412,6 @@ def room_process_by_plane(plane, target_objects, loaded_objects, args):
                 cam_Ts.append(cam2world_matrix)
 
     # render the whole pipeline
-    print("plane height ====================", plane_height)
     bproc.camera.set_intrinsics_from_blender_params(lens=args.fov / 180 * np.pi, image_width=args.res_x,
                                                     image_height=args.res_y, clip_start=0.01, clip_end=5,
                                                     lens_unit="FOV", ortho_scale=8)
@@ -605,10 +626,11 @@ if __name__ == '__main__':
 
                 bproc.object.delete_multiple(not_target_objects)
 
-                # for plane in planes:
-                #     room_process_by_plane(plane, current_bedroom_id, loaded_objects, layout_bbox, args)
-                #     break
-                room_process_by_plane(planes[0], target_objects, loaded_objects, args)
+                for plane in planes:
+                    room_process_by_plane(plane, target_objects, loaded_objects, args)
+                    print("===================== finish one plane =======================")
+                    # break
+                # room_process_by_plane(planes[3], target_objects, loaded_objects, args)
 
                 break
 

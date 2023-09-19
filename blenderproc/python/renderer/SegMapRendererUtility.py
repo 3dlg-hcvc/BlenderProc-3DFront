@@ -193,7 +193,7 @@ def render_segmap(output_dir: Optional[str] = None, temp_dir: Optional[str] = No
 
                             if current_attribute == "height":
                                 try:
-                                    value = current_obj.dimensions.z
+                                    value = current_obj.blender_obj["distance"]
                                 except:
                                     value = None
                             if current_attribute == "orientation":
