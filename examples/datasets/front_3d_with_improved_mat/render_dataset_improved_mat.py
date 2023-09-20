@@ -18,8 +18,8 @@ from visualization.front3d import Threed_Front_Config
 from visualization.front3d.tools.threed_front import ThreedFront
 
 
-import pydevd_pycharm
-pydevd_pycharm.settrace('localhost', port=12345, stdoutToServer=True, stderrToServer=True)
+# import pydevd_pycharm
+# pydevd_pycharm.settrace('localhost', port=12345, stdoutToServer=True, stderrToServer=True)
 
 
 def parse_args():
@@ -306,19 +306,23 @@ def room_process_by_plane(plane, target_objects, loaded_objects, args):
     bbox_height_not_target_furniture = []
     # only select objects from the current bedroom:
 
-    for tmp_object in target_objects:
+    distance_info = {}
+    for idx, tmp_object in enumerate(target_objects):
         bbox = tmp_object.get_bound_box()
         if tmp_object.has_cp("room_id"):
             if is_close_to_plane(tmp_object, plane):
                 # bbox_height.append(max(bbox[:, 2]))
                 max_distance, min_distance = min_max_distance_to_plane(plane, bbox)
                 bbox_height.append(max_distance)
-                tmp_object.blender_obj["distance"] = max_distance
+                distance_info[tmp_object.get_name()] = max_distance
             else:
                 max_distance, min_distance = min_max_distance_to_plane(plane, bbox)
                 # bbox_height_not_target_furniture.append(min(bbox[:, 2]))
                 bbox_height_not_target_furniture.append(min_distance)
-                tmp_object.blender_obj["distance"] = max_distance
+                distance_info[tmp_object.get_name()] = max_distance
+        else:
+            distance_info[tmp_object.get_name()] = 0
+
 
     # -------------------------------------------------------------------------
     #          Sample camera extrinsics
@@ -385,9 +389,15 @@ def room_process_by_plane(plane, target_objects, loaded_objects, args):
 
             print("plane height ====================", plane_height)
 
-            location = [bounding_box[0][0] + (bounding_box[1][0] - bounding_box[0][0]) / 2,  # Center in X
-                        bounding_box[0][1] + (bounding_box[1][1] - bounding_box[0][1]) / 2,  # Center in Y
-                        plane_height]  # Above the room
+            center_x = bounding_box[0][0] + (bounding_box[1][0] - bounding_box[0][0]) / 2
+            center_y = bounding_box[0][1] + (bounding_box[1][1] - bounding_box[0][1]) / 2
+            center_z = bounding_box[0][2] + (bounding_box[1][2] - bounding_box[0][2]) / 2
+            location = [center_x,  # Center in X
+                        center_y,  # Center in Y
+                        center_z]  # Above the room
+            plane_height = plane[0][np.nonzero(plane[1])[0][0]] + plane_height
+            location[np.nonzero(plane[1])[0][0]] = plane_height
+
             normal = plane[1]
             rotation = plane_normal_to_rotation(normal)
 
@@ -626,11 +636,11 @@ if __name__ == '__main__':
 
                 bproc.object.delete_multiple(not_target_objects)
 
-                for plane in planes:
-                    room_process_by_plane(plane, target_objects, loaded_objects, args)
-                    print("===================== finish one plane =======================")
+                # for plane in planes:
+                #     room_process_by_plane(plane, target_objects, loaded_objects, args)
+                #     print("===================== finish one plane =======================")
                     # break
-                # room_process_by_plane(planes[3], target_objects, loaded_objects, args)
+                room_process_by_plane(planes[2], target_objects, loaded_objects, args)
 
                 break
 

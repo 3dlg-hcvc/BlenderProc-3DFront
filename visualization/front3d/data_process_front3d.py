@@ -168,10 +168,10 @@ def process_scene(dataset_config, output_dir, scene_render_dir):
         # save height and orientation map
         depth_ori_output_path = os.path.join(output_dir, "depth_ori_map.npy")
         cv2.imwrite(
-            '/home/sunxh/Xiaohao/slice_layout_gen/BlenderProc-3DFront/output/processed_front3d_data/6a0e73bc-d0c4-4a38-bfb6-e083ce05ebe9_SecondBedroom-1415/height.png',
+            '/localhome/xsa55/Xiaohao/slice_layout_gen/BlenderProc-3DFront/output/processed_front3d_data/6a0e73bc-d0c4-4a38-bfb6-e083ce05ebe9_MasterBedroom-2679/height.png',
             scale_to_0_255(height_map_all))
         cv2.imwrite(
-            '/home/sunxh/Xiaohao/slice_layout_gen/BlenderProc-3DFront/output/processed_front3d_data/6a0e73bc-d0c4-4a38-bfb6-e083ce05ebe9_SecondBedroom-1415/orientation.png',
+            '/localhome/xsa55/Xiaohao/slice_layout_gen/BlenderProc-3DFront/output/processed_front3d_data/6a0e73bc-d0c4-4a38-bfb6-e083ce05ebe9_MasterBedroom-2679/orientation.png',
             scale_to_0_255(orientation_map_all))
         np.save(depth_ori_output_path, object_info_map)
 
@@ -192,7 +192,7 @@ def process_scene(dataset_config, output_dir, scene_render_dir):
 if __name__ == '__main__':
     args = parse_args()
     # Create a list of directories.
-    base_rendering_path = "/home/sunxh/Xiaohao/slice_layout_gen/BlenderProc-3DFront/examples/datasets/front_3d_with_improved_mat/renderings"
+    base_rendering_path = "/localhome/xsa55/Xiaohao/slice_layout_gen/datasets/front_3d_with_improved_mat/renderings"
     scene_dirs = [d for d in Path(base_rendering_path).iterdir() if d.is_dir()]
 
     # Define the output directory

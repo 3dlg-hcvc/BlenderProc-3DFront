@@ -73,6 +73,8 @@ class Threed_Front_Config(Data_Process_Config):
                         threed_label not in self.raw_threed_front_mapping.values()])
 
         generic_mapping["floor"] = "floor"
+        generic_mapping["wallinner"] = "wallinner"
+        generic_mapping["ceiling"] = "ceiling"
 
         bg_label = 'void'
         raw_label_to_generic_label = dict()

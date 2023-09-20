@@ -14,7 +14,8 @@ from blenderproc.python.utility.Utility import Utility
 
 def render_segmap(output_dir: Optional[str] = None, temp_dir: Optional[str] = None,
                   map_by: Union[str, List[str]] = "class",
-                  default_values: Optional[Dict[str, int]] = None, file_prefix: str = "segmap_",
+                  default_values: Optional[Dict[str, int]] = None, distance_info: Optional[Dict[str, int]] = None,
+                  file_prefix: str = "segmap_",
                   output_key: str = "segmap", segcolormap_output_file_prefix: str = "instance_attribute_map_",
                   segcolormap_output_key: str = "segcolormap", use_alpha_channel: bool = False,
                   render_colorspace_size_per_dimension: int = 2048) -> \
