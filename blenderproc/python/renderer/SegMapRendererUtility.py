@@ -26,6 +26,7 @@ def render_segmap(output_dir: Optional[str] = None, temp_dir: Optional[str] = No
     :param temp_dir: The directory to write intermediate data to.
     :param map_by: The attributes to be used for color mapping.
     :param default_values: The default values used for the keys used in attributes, if None is {"class": 0}.
+    :param distance_info: The dictionary that contains the distance of objects to the specific boundary slice.
     :param file_prefix: The prefix to use for writing the images.
     :param output_key: The key to use for registering the output.
     :param segcolormap_output_file_prefix: The prefix to use for writing the segmentation-color map csv.
@@ -194,7 +195,7 @@ def render_segmap(output_dir: Optional[str] = None, temp_dir: Optional[str] = No
 
                             if current_attribute == "height":
                                 try:
-                                    value = current_obj.blender_obj["distance"]
+                                    value = distance_info[current_obj.name]
                                 except:
                                     value = None
                             if current_attribute == "orientation":

@@ -198,6 +198,26 @@ def get_centroid(bbox_corners):
     return centroid_point
 
 
+def get_plane_name(plane_normal):
+    normals = [
+        np.array([0, 0, -1]),  # Bottom: z0
+        np.array([0, 0, 1]),  # Top: z1
+        np.array([0, -1, 0]),  # Front: y0
+        np.array([0, 1, 0]),  # Back: y1
+        np.array([-1, 0, 0]),  # Left: x0
+        np.array([1, 0, 0])  # Right: x1
+    ]
+
+    # Creating a dictionary to map normals to plane names
+    normal_to_name = {
+        tuple(norm): name for norm, name in zip(normals, ["Bottom", "Top", "Front", "Back", "Left", "Right"])
+    }
+
+    plane_name = normal_to_name.get(tuple(plane_normal), "Unknown")
+
+    return plane_name
+
+
 def get_planes_from_bbox(bbox):
     # Assuming Z is up, using the right-hand rule for normals
     normals = [
@@ -236,11 +256,11 @@ def plane_normal_to_rotation(normal):
 
     # Plane normal (0, 0, 1)
     if np.allclose(normal, [0, 0, -1]):
-        return 0, 0, np.pi / 2
+        return 0, 0, np.pi
 
     # Plane normal (0, 0, -1)
     elif np.allclose(normal, [0, 0, 1]):
-        return 0, np.pi, 0
+        return 0, np.pi, np.pi
 
     # Plane normal (0, 1, 0)
     elif np.allclose(normal, [0, 1, 0]):
@@ -304,6 +324,7 @@ def check_name(name, category_name):
 def room_process_by_plane(plane, target_objects, loaded_objects, args):
     bbox_height = []
     bbox_height_not_target_furniture = []
+    plane_name = get_plane_name(plane[1])
     # only select objects from the current bedroom:
 
     distance_info = {}
@@ -323,7 +344,8 @@ def room_process_by_plane(plane, target_objects, loaded_objects, args):
         else:
             distance_info[tmp_object.get_name()] = 0
 
-
+    if len(bbox_height) == 0:
+        bbox_height.append(0.5)
     # -------------------------------------------------------------------------
     #          Sample camera extrinsics
     # -------------------------------------------------------------------------
@@ -395,7 +417,7 @@ def room_process_by_plane(plane, target_objects, loaded_objects, args):
             location = [center_x,  # Center in X
                         center_y,  # Center in Y
                         center_z]  # Above the room
-            plane_height = plane[0][np.nonzero(plane[1])[0][0]] + plane_height
+            plane_height = plane[0][np.nonzero(plane[1])[0][0]] - plane_height * plane[1][np.nonzero(plane[1])[0][0]]
             location[np.nonzero(plane[1])[0][0]] = plane_height
 
             normal = plane[1]
@@ -434,12 +456,17 @@ def room_process_by_plane(plane, target_objects, loaded_objects, args):
     data.update(bproc.renderer.render_segmap(
         map_by=["instance", "class", "cp_uid", "cp_jid", "cp_inst_mark", "cp_room_id", "location", "height",
                 "orientation"],
-        default_values=default_values))
+        default_values=default_values, distance_info=distance_info))
 
     # # write camera extrinsics
-    data['cam_Ts'] = cam_Ts
+    if "cam_Ts" in data:
+        data['cam_Ts'].append(cam_Ts)
+    else:
+        data['cam_Ts'] = cam_Ts
+    sub_data = {key: [value[-1]] for key, value in data.items()}
+
     # # write the data to a .hdf5 container
-    bproc.writer.write_hdf5(str(room_output_folder), data,
+    bproc.writer.write_hdf5(str(room_output_folder), sub_data, plane_name=plane_name,
                             append_to_existing_output=args.append_to_existing_output)
 
 
@@ -636,13 +663,22 @@ if __name__ == '__main__':
 
                 bproc.object.delete_multiple(not_target_objects)
 
-                # for plane in planes:
-                #     room_process_by_plane(plane, target_objects, loaded_objects, args)
-                #     print("===================== finish one plane =======================")
-                    # break
-                room_process_by_plane(planes[2], target_objects, loaded_objects, args)
+                if len(planes) > 6:
+                    continue
 
-                break
+                debug = False
+                for plane in planes:
+                    if debug:
+                        if np.array_equal(plane[1], np.array([0, 0, -1])):
+                            room_process_by_plane(plane, target_objects, loaded_objects, args)
+                            print("===================== finish one plane =======================")
+                            break
+                        else:
+                            continue
+                    else:
+                        room_process_by_plane(plane, target_objects, loaded_objects, args)
+
+                # room_process_by_plane(planes[5], target_objects, loaded_objects, args)
 
             print('Time elapsed: %f.' % (time() - start_time))
 

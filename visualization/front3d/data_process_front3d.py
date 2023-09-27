@@ -26,7 +26,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Visualize a 3D-FRONT room.")
     parser.add_argument("--output_dir", type=str, default='output/processed_front3d_data',
                         help="The output directory")
-    parser.add_argument("--debug", default=True, action="store",
+    parser.add_argument("--debug", default=False, action="store",
                         help="The output directory")
     return parser.parse_args()
 
@@ -37,7 +37,10 @@ def scale_to_0_255(arr):
     max_val = np.max(arr)
 
     # Scale the array to [0, 255]
-    scaled_arr = 255 * (arr - min_val) / (max_val - min_val)
+    if max_val-min_val != 0:
+        scaled_arr = 255 * (arr - min_val) / (max_val - min_val)
+    else:
+        scaled_arr = 255 * arr
 
     # Convert the scaled array to unsigned 8-bit integer type
     return scaled_arr.astype(np.uint8)
@@ -79,6 +82,7 @@ def process_scene(dataset_config, output_dir, scene_render_dir):
         class_maps = []
         instance_attrs = []
         projected_inst_boxes = []
+        plane_names = []
         for render_path in scene_render_dir.iterdir():
             with h5py.File(render_path) as f:
                 colors = np.array(f["colors"])[:, ::-1]
@@ -86,6 +90,8 @@ def process_scene(dataset_config, output_dir, scene_render_dir):
                 class_segmap = np.array(f["class_segmaps"])[:, ::-1]
                 instance_segmap = np.array(f["instance_segmaps"])[:, ::-1]
                 instance_attribute_mapping = json.loads(f["instance_attribute_maps"][()])
+
+            plane_name = str(render_path).split("/")[-1].split(".")[0]
 
             ### get scene_name
             scene_json = render_path.parent.name
@@ -155,6 +161,7 @@ def process_scene(dataset_config, output_dir, scene_render_dir):
             cam_Ts.append(cam_T)
             class_maps.append(class_segmap)
             instance_attrs.append(inst_info)
+            plane_names.append(plane_name)
 
             '''Project objects 3D boxes to image planes'''
             projected_box2d_list = project_insts_to_2d(inst_info, cam_K, cam_T)
@@ -165,22 +172,23 @@ def process_scene(dataset_config, output_dir, scene_render_dir):
         # for rm in d.rooms:
         #     layout_boxes.append(rm.layout_box)
 
-        # save height and orientation map
-        depth_ori_output_path = os.path.join(output_dir, "depth_ori_map.npy")
-        cv2.imwrite(
-            '/localhome/xsa55/Xiaohao/slice_layout_gen/BlenderProc-3DFront/output/processed_front3d_data/6a0e73bc-d0c4-4a38-bfb6-e083ce05ebe9_MasterBedroom-2679/height.png',
-            scale_to_0_255(height_map_all))
-        cv2.imwrite(
-            '/localhome/xsa55/Xiaohao/slice_layout_gen/BlenderProc-3DFront/output/processed_front3d_data/6a0e73bc-d0c4-4a38-bfb6-e083ce05ebe9_MasterBedroom-2679/orientation.png',
-            scale_to_0_255(orientation_map_all))
-        np.save(depth_ori_output_path, object_info_map)
+            # save height and orientation map
+            depth_ori_output_path = os.path.join(output_dir, plane_name + "_depth_ori_map.npy")
+            vis_output_path = os.path.join(output_dir, plane_name)
+            cv2.imwrite(
+                f'{vis_output_path}_height.png',
+                scale_to_0_255(height_map_all))
+            cv2.imwrite(
+                f'{vis_output_path}_orientation.png',
+                scale_to_0_255(orientation_map_all))
+            np.save(depth_ori_output_path, object_info_map)
 
         process_2D = PROCESS_3DFRONT_2D(color_maps=room_imgs, inst_info=instance_attrs,
                                         cls_maps=class_maps, class_names=dataset_config.label_names,
-                                        projected_inst_boxes=projected_inst_boxes)
+                                        projected_inst_boxes=projected_inst_boxes, plane_names=plane_names)
 
         process_2D.draw_inst_maps(type=('mask'), output_dir=output_dir)
-        process_2D.draw_colors()
+        process_2D.draw_colors(output_dir=output_dir)
 
     except Exception as e:
         print(f"Error in scene {scene_render_dir}: {e}")
@@ -192,7 +200,7 @@ def process_scene(dataset_config, output_dir, scene_render_dir):
 if __name__ == '__main__':
     args = parse_args()
     # Create a list of directories.
-    base_rendering_path = "/localhome/xsa55/Xiaohao/slice_layout_gen/datasets/front_3d_with_improved_mat/renderings"
+    base_rendering_path = "/home/sunxh/Xiaohao/slice_layout_gen/BlenderProc-3DFront/examples/datasets/front_3d_with_improved_mat/renderings"
     scene_dirs = [d for d in Path(base_rendering_path).iterdir() if d.is_dir()]
 
     # Define the output directory

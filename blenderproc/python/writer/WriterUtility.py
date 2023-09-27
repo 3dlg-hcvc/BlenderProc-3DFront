@@ -18,7 +18,7 @@ from blenderproc.python.utility.MathUtility import change_coordinate_frame_of_po
 import blenderproc.python.camera.CameraUtility as CameraUtility
 
 
-def write_hdf5(output_dir_path: str, output_data_dict: Dict[str, List[Union[np.ndarray, list, dict]]],
+def write_hdf5(output_dir_path: str, output_data_dict: Dict[str, List[Union[np.ndarray, list, dict]]], plane_name: str,
                append_to_existing_output: bool = False, stereo_separate_keys: bool = False):
     """
     Saves the information provided inside of the output_data_dict into a .hdf5 container
@@ -56,13 +56,13 @@ def write_hdf5(output_dir_path: str, output_data_dict: Dict[str, List[Union[np.n
     else:
         frame_offset = 0
 
-    if amount_of_frames != bpy.context.scene.frame_end - bpy.context.scene.frame_start:
-        raise Exception("The amount of images stored in the output_data_dict does not correspond with the amount"
-                        "of images specified by frame_start to frame_end.")
+    # if amount_of_frames != bpy.context.scene.frame_end - bpy.context.scene.frame_start:
+    #     raise Exception("The amount of images stored in the output_data_dict does not correspond with the amount"
+    #                     "of images specified by frame_start to frame_end.")
 
-    for frame in range(bpy.context.scene.frame_start, bpy.context.scene.frame_end):
+    for frame in range(0, 1):
         # for each frame a new .hdf5 file is generated
-        hdf5_path = os.path.join(output_dir_path, str(frame + frame_offset) + ".hdf5")
+        hdf5_path = os.path.join(output_dir_path, plane_name + ".hdf5")
         with h5py.File(hdf5_path, "w") as file:
             # Go through all the output types
             print(f"Merging data for frame {frame} into {hdf5_path}")

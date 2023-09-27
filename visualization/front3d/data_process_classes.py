@@ -112,6 +112,7 @@ class PROCESS_3DFRONT_2D(object):
         if 'class_names' in kwargs:
             self.class_names = kwargs['class_names']
         self.cls_palette = (np.array(sns.color_palette('hls', len(self.class_names))) * 255).astype(np.uint8)
+        self.plane_names = kwargs["plane_names"]
 
     def draw_box2d_from_3d(self):
         masked_images = self.color_maps.copy()
@@ -146,56 +147,66 @@ class PROCESS_3DFRONT_2D(object):
             inst_maps.append(np.array(source_img))
         image_grid(inst_maps).show()
 
-    def draw_colors(self):
-        image_grid(self.color_maps).show()
+    def draw_colors(self, output_dir='output'):
+        # image_grid(self.color_maps).show()
+        for idx, color in enumerate(self.color_maps):
+            plane_name = self.plane_names[idx]
+            color_image = Image.fromarray(color)
+            color_image.save(f'{output_dir}/{plane_name}_color.png')
+
 
     def draw_inst_maps(self, type=(), output_dir='output'):
-        masked_image = self.color_maps[0].astype(np.uint8).copy()
-        inst_map = np.zeros((masked_image.shape[0], masked_image.shape[1], 3), dtype=np.uint8)
+        for idx, insts_per_img in enumerate(self.inst_info):
+            masked_image = self.color_maps[0].astype(np.uint8).copy()
+            inst_map = np.zeros((masked_image.shape[0], masked_image.shape[1], 3), dtype=np.uint8)
 
-        labeled_img = np.zeros(masked_image.shape[:2], dtype=np.int32)  # Image to store category IDs
+            labeled_img = np.zeros(masked_image.shape[:2], dtype=np.int32)  # Image to store category IDs
+            # insts_per_img = self.inst_info[0]
 
-        insts_per_img = self.inst_info[0]
+            objects_info = []  # List to store objects info for the image
 
-        objects_info = []  # List to store objects info for the image
+            # Number of instances
+            if not len(insts_per_img):
+                plane_name = self.plane_names[idx]
+                inst_map_img = Image.fromarray(inst_map)
+                inst_map_img.save(f'{output_dir}/{plane_name}_inst_map.png')
 
-        # Number of instances
-        if not len(insts_per_img):
-            print("\n*** No instances to display *** \n")
-            return
+                lbl_img = Image.fromarray(labeled_img.astype(np.uint8))
+                lbl_img.save(f'{output_dir}/{plane_name}_label_map.png')
 
-        for inst in insts_per_img:
-            color = tuple(self.cls_palette[inst['category_id']])
+            for inst in insts_per_img:
+                color = tuple(self.cls_palette[inst['category_id']])
 
-            mask = np.zeros(masked_image.shape[:2], dtype=bool)
-            x_min, y_min, width, height = inst['bbox2d']
-            x_max = x_min + width - 1
-            y_max = y_min + height - 1
-            mask[y_min: y_max + 1, x_min: x_max + 1] = inst['mask']
+                mask = np.zeros(masked_image.shape[:2], dtype=bool)
+                x_min, y_min, width, height = inst['bbox2d']
+                x_max = x_min + width - 1
+                y_max = y_min + height - 1
+                mask[y_min: y_max + 1, x_min: x_max + 1] = inst['mask']
 
-            inst_map[mask] = color
-            labeled_img[mask] = inst['category_id']
+                inst_map[mask] = color
+                labeled_img[mask] = inst['category_id']
 
-            if 'mask' in type:
-                inst_mask = binary_mask_to_polygon(mask, tolerance=2)
+                if 'mask' in type:
+                    inst_mask = binary_mask_to_polygon(mask, tolerance=2)
 
-                # Collect all polygons of the instance in a single list
-                polygons = []
-                for verts in inst_mask:
-                    polygons.append(verts)
+                    # Collect all polygons of the instance in a single list
+                    polygons = []
+                    for verts in inst_mask:
+                        polygons.append(verts)
 
-                obj_info = {
-                    "label": self.class_names[inst['category_id']],
-                    "polygons": polygons  # Using "polygons" here to indicate it can be a list of polygons
-                }
-                objects_info.append(obj_info)
+                    obj_info = {
+                        "label": self.class_names[inst['category_id']],
+                        "polygons": polygons  # Using "polygons" here to indicate it can be a list of polygons
+                    }
+                    objects_info.append(obj_info)
 
-        # Save the results to disk
-        inst_map_img = Image.fromarray(inst_map)
-        inst_map_img.save(f'{output_dir}/inst_map.png')
+            # Save the results to disk
+            plane_name = self.plane_names[idx]
+            inst_map_img = Image.fromarray(inst_map)
+            inst_map_img.save(f'{output_dir}/{plane_name}_inst_map.png')
 
-        lbl_img = Image.fromarray(labeled_img.astype(np.uint8))
-        lbl_img.save(f'{output_dir}/label_map.png')
+            lbl_img = Image.fromarray(labeled_img.astype(np.uint8))
+            lbl_img.save(f'{output_dir}/{plane_name}_label_map.png')
 
-        with open(f'{output_dir}/mask.json', 'w') as file:
-            json.dump(objects_info, file, indent=4)
+            # with open(f'{output_dir}/{plane_name}_mask.json', 'w') as file:
+            #     json.dump(objects_info, file, indent=4)
