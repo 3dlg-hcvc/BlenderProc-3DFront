@@ -317,6 +317,36 @@ def min_max_distance_to_plane(plane, bbox):
     return max_distance, min_distance
 
 
+def oriented_bbox_dimensions(bbox_corners, plane_normal):
+    # Normalize the plane normal
+    plane_normal = np.array(plane_normal, dtype=np.float64) / np.linalg.norm(plane_normal)
+
+    # Find the bbox corner with the largest projection onto the plane's normal
+    projections = [np.dot(p, plane_normal) for p in bbox_corners]
+    idx_max_proj = np.argmax(projections)
+    corner1 = np.array(bbox_corners[idx_max_proj])
+
+    # Find the other corners of the oriented bbox face
+    diffs = [np.linalg.norm(corner1 - np.array(c)) for c in bbox_corners]
+
+    # The largest two differences will give the diagonally opposite corner on the bbox
+    idx_diag_opposite = np.argmax(diffs)
+    corner2 = np.array(bbox_corners[idx_diag_opposite])
+
+    # Remove the selected corners to find the remaining corners
+    remaining_corners = [c for i, c in enumerate(bbox_corners) if i not in [idx_max_proj, idx_diag_opposite]]
+    diffs_remaining = [np.linalg.norm(corner1 - np.array(c)) for c in remaining_corners]
+    idx_third_corner = np.argmax(diffs_remaining)
+    corner3 = np.array(remaining_corners[idx_third_corner])
+
+    # Compute the dimensions
+    length = np.linalg.norm(corner1 - corner2)
+    width = np.linalg.norm(corner1 - corner3)
+    height = np.linalg.norm(corner2 - corner3)
+
+    return length, width, height
+
+
 def check_name(name, category_name):
     return True if category_name in name.lower() else False
 
@@ -328,9 +358,12 @@ def room_process_by_plane(plane, target_objects, loaded_objects, args):
     # only select objects from the current bedroom:
 
     distance_info = {}
+    size_info = {}
     for idx, tmp_object in enumerate(target_objects):
         bbox = tmp_object.get_bound_box()
         if tmp_object.has_cp("room_id"):
+            size = oriented_bbox_dimensions(bbox, plane[1])
+            size_info[tmp_object.get_name()] = size
             if is_close_to_plane(tmp_object, plane):
                 # bbox_height.append(max(bbox[:, 2]))
                 max_distance, min_distance = min_max_distance_to_plane(plane, bbox)
@@ -343,6 +376,7 @@ def room_process_by_plane(plane, target_objects, loaded_objects, args):
                 distance_info[tmp_object.get_name()] = max_distance
         else:
             distance_info[tmp_object.get_name()] = 0
+            size_info[tmp_object.get_name()] = (0.0, 0.0, 0.0)
 
     if len(bbox_height) == 0:
         bbox_height.append(0.5)
@@ -455,8 +489,8 @@ def room_process_by_plane(plane, target_objects, loaded_objects, args):
                       "cp_room_id": ""}
     data.update(bproc.renderer.render_segmap(
         map_by=["instance", "class", "cp_uid", "cp_jid", "cp_inst_mark", "cp_room_id", "location", "height",
-                "orientation"],
-        default_values=default_values, distance_info=distance_info))
+                "orientation", "size"],
+        default_values=default_values, distance_info=distance_info, size_info=size_info))
 
     # # write camera extrinsics
     if "cam_Ts" in data:

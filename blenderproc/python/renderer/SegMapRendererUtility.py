@@ -15,6 +15,7 @@ from blenderproc.python.utility.Utility import Utility
 def render_segmap(output_dir: Optional[str] = None, temp_dir: Optional[str] = None,
                   map_by: Union[str, List[str]] = "class",
                   default_values: Optional[Dict[str, int]] = None, distance_info: Optional[Dict[str, int]] = None,
+                  size_info: Optional[Dict[str, int]] = None,
                   file_prefix: str = "segmap_",
                   output_key: str = "segmap", segcolormap_output_file_prefix: str = "instance_attribute_map_",
                   segcolormap_output_key: str = "segcolormap", use_alpha_channel: bool = False,
@@ -162,7 +163,7 @@ def render_segmap(output_dir: Optional[str] = None, temp_dir: Optional[str] = No
                             object_id = int(object_id)
                             # get the corresponding object via the id
                             current_obj = objects[object_id]
-                            if attribute != "height" and attribute != "orientation":
+                            if attribute != "height" and attribute != "orientation" and attribute != "size":
                                 # if the current obj has a attribute with that name -> get it
                                 if hasattr(current_obj, attribute):
                                     value = getattr(current_obj, attribute)
@@ -196,6 +197,11 @@ def render_segmap(output_dir: Optional[str] = None, temp_dir: Optional[str] = No
                             if current_attribute == "height":
                                 try:
                                     value = distance_info[current_obj.name]
+                                except:
+                                    value = None
+                            if current_attribute == "size":
+                                try:
+                                    value = size_info[current_obj.name]
                                 except:
                                     value = None
                             if current_attribute == "orientation":

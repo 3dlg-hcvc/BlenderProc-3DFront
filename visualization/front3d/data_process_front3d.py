@@ -24,9 +24,11 @@ import cv2
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Visualize a 3D-FRONT room.")
-    parser.add_argument("--output_dir", type=str, default='output/processed_front3d_data',
+    parser.add_argument("--output_dir", type=str, default='output/tmp_processed_front3d_data',
                         help="The output directory")
-    parser.add_argument("--debug", default=False, action="store",
+    parser.add_argument("--debug", default=True, action="store",
+                        help="The output directory")
+    parser.add_argument("--floor", default=True, action="store",
                         help="The output directory")
     return parser.parse_args()
 
@@ -46,7 +48,38 @@ def scale_to_0_255(arr):
     return scaled_arr.astype(np.uint8)
 
 
-def process_scene(dataset_config, output_dir, scene_render_dir):
+def mask_to_coco_polygon(binary_mask):
+    """
+    Convert a binary mask to COCO polygon representation.
+
+    Args:
+    - binary_mask (ndarray): A 2D binary numpy array where mask is represented by `True` values.
+
+    Returns:
+    - coco_polygons (list): A list of lists containing the polygon points.
+    """
+    # Convert binary mask to uint8
+    mask_uint8 = np.uint8(binary_mask)
+
+    # Find contours in the binary mask
+    contours, _ = cv2.findContours(mask_uint8, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    coco_polygons = []
+
+    for contour in contours:
+        point_list = contour.flatten().tolist()
+        if len(point_list) > 4:  # Ensure the polygon has more than 2 points (4 values)
+            coco_polygons.append(point_list)
+        # # Flatten list of points
+        # for shape in simplified_contour:
+        #     point_list = shape.flatten().tolist()
+        #     if len(point_list) > 4:  # Ensure the polygon has more than 2 points (4 values)
+        #         coco_polygons.append(point_list)
+
+    return coco_polygons
+
+
+def process_scene(dataset_config, output_dir, scene_render_dir, floor_slice):
     try:
         # initialize category labels and mapping dict for specific room type.
         dataset_config.init_generic_categories_by_room_type('all')
@@ -84,12 +117,24 @@ def process_scene(dataset_config, output_dir, scene_render_dir):
         projected_inst_boxes = []
         plane_names = []
         for render_path in scene_render_dir.iterdir():
-            with h5py.File(render_path) as f:
-                colors = np.array(f["colors"])[:, ::-1]
-                cam_T = np.array(f["cam_Ts"])
-                class_segmap = np.array(f["class_segmaps"])[:, ::-1]
-                instance_segmap = np.array(f["instance_segmaps"])[:, ::-1]
-                instance_attribute_mapping = json.loads(f["instance_attribute_maps"][()])
+            if floor_slice and "Bottom" in str(render_path):
+                with h5py.File(render_path) as f:
+                    colors = np.array(f["colors"])[:, ::-1]
+                    cam_T = np.array(f["cam_Ts"])
+                    class_segmap = np.array(f["class_segmaps"])[:, ::-1]
+                    instance_segmap = np.array(f["instance_segmaps"])[:, ::-1]
+                    instance_attribute_mapping = json.loads(f["instance_attribute_maps"][()])
+            elif floor_slice and "Bottom" not in str(render_path):
+                continue
+            else:
+                with h5py.File(render_path) as f:
+                    colors = np.array(f["colors"])[:, ::-1]
+                    cam_T = np.array(f["cam_Ts"])
+                    class_segmap = np.array(f["class_segmaps"])[:, ::-1]
+                    instance_segmap = np.array(f["instance_segmaps"])[:, ::-1]
+                    instance_attribute_mapping = json.loads(f["instance_attribute_maps"][()])
+
+
 
             plane_name = str(render_path).split("/")[-1].split(".")[0]
 
@@ -107,6 +152,8 @@ def process_scene(dataset_config, output_dir, scene_render_dir):
                               inst['inst_mark'] != ''])
 
             inst_info = []
+            instance_annotation = []
+            inst_id = 0
             # Initialize maps outside the loop
             height_map_all = np.zeros(instance_segmap.shape,
                                       dtype=np.float32)  # Assuming float32 is suitable for height
@@ -120,6 +167,7 @@ def process_scene(dataset_config, output_dir, scene_render_dir):
                 category_id = dataset_config.label_mapping[parts[0]['category_id']]
                 if category_id == 0:
                     continue
+                inst_anno = {"category": category_id}
                 # get 2D masks
                 part_indices = [part['idx'] for part in parts]
                 inst_mask = np.sum([instance_segmap == idx for idx in part_indices], axis=0, dtype=bool)
@@ -149,6 +197,16 @@ def process_scene(dataset_config, output_dir, scene_render_dir):
                 inst_rm_uid = "_".join([scene_json, inst_dict['room_id']])
                 inst_3d_info = parse_inst_from_3dfront(inst_dict, d.rooms, inst_rm_uid)
                 inst_dict = {**inst_dict, **inst_3d_info, **{'room_uid': inst_rm_uid}}
+
+                polygon_mask = mask_to_coco_polygon(inst_mask)
+                inst_anno["mask"] = polygon_mask
+                inst_anno["size"] = parts[0]["size"]
+                inst_anno["orientation"] = parts[0]["orientation"]
+                inst_anno["offset"] = parts[0]["height"]
+                inst_anno["inst_id"] = inst_id
+                inst_id += 1
+
+                instance_annotation.append(inst_anno)
 
                 inst_info.append(inst_dict)
 
@@ -183,6 +241,9 @@ def process_scene(dataset_config, output_dir, scene_render_dir):
                 scale_to_0_255(orientation_map_all))
             np.save(depth_ori_output_path, object_info_map)
 
+            with open(f'{vis_output_path}_inst_anno.json', "w") as outfile:
+                json.dump(instance_annotation, outfile, indent=4)
+
         process_2D = PROCESS_3DFRONT_2D(color_maps=room_imgs, inst_info=instance_attrs,
                                         cls_maps=class_maps, class_names=dataset_config.label_names,
                                         projected_inst_boxes=projected_inst_boxes, plane_names=plane_names)
@@ -200,15 +261,16 @@ def process_scene(dataset_config, output_dir, scene_render_dir):
 if __name__ == '__main__':
     args = parse_args()
     # Create a list of directories.
-    base_rendering_path = "/home/sunxh/Xiaohao/slice_layout_gen/BlenderProc-3DFront/examples/datasets/front_3d_with_improved_mat/renderings"
+    base_rendering_path = "/localhome/xsa55/Xiaohao/slice_layout_gen/datasets/front_3d_with_improved_mat/tmp_renderings"
     scene_dirs = [d for d in Path(base_rendering_path).iterdir() if d.is_dir()]
 
     # Define the output directory
     output_directory = args.output_dir
     dataset_config = Threed_Front_Config()
+    floor_slice = args.floor
 
     if args.debug:
-        process_scene(dataset_config, output_directory, scene_dirs[0])
+        process_scene(dataset_config, output_directory, scene_dirs[1], floor_slice)
     else:
-        partial_process = partial(process_scene, dataset_config, output_directory)
+        partial_process = partial(process_scene, dataset_config, output_directory, floor_slice)
         process_map(partial_process, scene_dirs, chunksize=1)
