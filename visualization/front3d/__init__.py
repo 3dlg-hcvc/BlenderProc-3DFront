@@ -9,7 +9,7 @@ from visualization.front3d.tools.base import THREED_FRONT_BEDROOM_FURNITURE, THR
 
 
 class Threed_Front_Config(Data_Process_Config):
-    def __init__(self, dataset_name='front_3d_with_improved_mat', proj_dir='../'):
+    def __init__(self, dataset_name='front_3d_with_improved_mat', proj_dir='../../'):
         super(Threed_Front_Config, self).__init__(dataset_name, proj_dir)
         self.threed_front_dir = self.root_path.joinpath('3D-FRONT')
         self.threed_future_dir = self.root_path.joinpath('3D-FUTURE-model')
@@ -86,6 +86,7 @@ class Threed_Front_Config(Data_Process_Config):
 
         new_categories = [bg_label] + sorted(list(set(raw_label_to_generic_label.values()) - {bg_label}))
         new_label_mapping = {int(key): new_categories.index(value) for key, value in raw_label_to_generic_label.items()}
+        new_label_to_generic_label = {idx: cat for idx, cat in enumerate(new_categories)}
 
         # Update label names and mapping dict.
         self._label_names = new_categories

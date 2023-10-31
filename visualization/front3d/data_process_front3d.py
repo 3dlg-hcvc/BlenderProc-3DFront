@@ -261,7 +261,7 @@ def process_scene(dataset_config, output_dir, scene_render_dir, floor_slice):
 if __name__ == '__main__':
     args = parse_args()
     # Create a list of directories.
-    base_rendering_path = "/localhome/xsa55/Xiaohao/slice_layout_gen/datasets/front_3d_with_improved_mat/tmp_renderings"
+    base_rendering_path = "/localhome/xsa55/Xiaohao/SemDiffLayout/datasets/output/test_processed_data"
     scene_dirs = [d for d in Path(base_rendering_path).iterdir() if d.is_dir()]
 
     # Define the output directory
@@ -270,7 +270,7 @@ if __name__ == '__main__':
     floor_slice = args.floor
 
     if args.debug:
-        process_scene(dataset_config, output_directory, scene_dirs[1], floor_slice)
+        process_scene(dataset_config, output_directory, scene_dirs[0], floor_slice)
     else:
         partial_process = partial(process_scene, dataset_config, output_directory, floor_slice)
         process_map(partial_process, scene_dirs, chunksize=1)
