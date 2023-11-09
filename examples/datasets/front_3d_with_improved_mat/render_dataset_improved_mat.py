@@ -318,31 +318,35 @@ def min_max_distance_to_plane(plane, bbox):
 
 
 def oriented_bbox_dimensions(bbox_corners, plane_normal):
-    # Normalize the plane normal
-    plane_normal = np.array(plane_normal, dtype=np.float64) / np.linalg.norm(plane_normal)
+    # # Normalize the plane normal
+    # plane_normal = np.array(plane_normal, dtype=np.float64) / np.linalg.norm(plane_normal)
+    #
+    # # Find the bbox corner with the largest projection onto the plane's normal
+    # projections = [np.dot(p, plane_normal) for p in bbox_corners]
+    # idx_max_proj = np.argmax(projections)
+    # corner1 = np.array(bbox_corners[idx_max_proj])
+    #
+    # # Find the other corners of the oriented bbox face
+    # diffs = [np.linalg.norm(corner1 - np.array(c)) for c in bbox_corners]
+    #
+    # # The largest two differences will give the diagonally opposite corner on the bbox
+    # idx_diag_opposite = np.argmax(diffs)
+    # corner2 = np.array(bbox_corners[idx_diag_opposite])
+    #
+    # # Remove the selected corners to find the remaining corners
+    # remaining_corners = [c for i, c in enumerate(bbox_corners) if i not in [idx_max_proj, idx_diag_opposite]]
+    # diffs_remaining = [np.linalg.norm(corner1 - np.array(c)) for c in remaining_corners]
+    # idx_third_corner = np.argmax(diffs_remaining)
+    # corner3 = np.array(remaining_corners[idx_third_corner])
+    #
+    # # Compute the dimensions
+    # length = np.linalg.norm(corner1 - corner2)
+    # width = np.linalg.norm(corner1 - corner3)
+    # height = np.linalg.norm(corner2 - corner3)
 
-    # Find the bbox corner with the largest projection onto the plane's normal
-    projections = [np.dot(p, plane_normal) for p in bbox_corners]
-    idx_max_proj = np.argmax(projections)
-    corner1 = np.array(bbox_corners[idx_max_proj])
-
-    # Find the other corners of the oriented bbox face
-    diffs = [np.linalg.norm(corner1 - np.array(c)) for c in bbox_corners]
-
-    # The largest two differences will give the diagonally opposite corner on the bbox
-    idx_diag_opposite = np.argmax(diffs)
-    corner2 = np.array(bbox_corners[idx_diag_opposite])
-
-    # Remove the selected corners to find the remaining corners
-    remaining_corners = [c for i, c in enumerate(bbox_corners) if i not in [idx_max_proj, idx_diag_opposite]]
-    diffs_remaining = [np.linalg.norm(corner1 - np.array(c)) for c in remaining_corners]
-    idx_third_corner = np.argmax(diffs_remaining)
-    corner3 = np.array(remaining_corners[idx_third_corner])
-
-    # Compute the dimensions
-    length = np.linalg.norm(corner1 - corner2)
-    width = np.linalg.norm(corner1 - corner3)
-    height = np.linalg.norm(corner2 - corner3)
+    length = max(bbox_corners[:, 0]) - min(bbox_corners[:, 0])
+    width = max(bbox_corners[:, 1]) - min(bbox_corners[:, 1])
+    height = max(bbox_corners[:, 2]) - min(bbox_corners[:, 2])
 
     return length, width, height
 
@@ -607,6 +611,9 @@ if __name__ == '__main__':
             # bproc.renderer.enable_normals_output()
 
             for current_bedroom_id in bedroom_ids:
+                # if current_bedroom_id != "MasterBedroom-4017":
+                #     continue
+
                 room_output_folder = f"{scene_output_folder}_{current_bedroom_id}"
 
                 bproc.init()
@@ -701,6 +708,7 @@ if __name__ == '__main__':
                     continue
 
                 debug = False
+                only_floor = True
                 for plane in planes:
                     if debug:
                         if np.array_equal(plane[1], np.array([0, 0, -1])):
@@ -709,6 +717,10 @@ if __name__ == '__main__':
                             break
                         else:
                             continue
+                    if only_floor:
+                        if np.array_equal(plane[1], np.array([0, 0, -1])):
+                            room_process_by_plane(plane, target_objects, loaded_objects, args)
+                            break
                     else:
                         room_process_by_plane(plane, target_objects, loaded_objects, args)
 
