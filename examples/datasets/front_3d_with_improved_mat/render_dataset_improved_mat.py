@@ -355,7 +355,7 @@ def check_name(name, category_name):
     return True if category_name in name.lower() else False
 
 
-def room_process_by_plane(plane, target_objects, loaded_objects, args):
+def room_process_by_plane(plane, target_objects, loaded_objects, only_floor, args):
     bbox_height = []
     bbox_height_not_target_furniture = []
     plane_name = get_plane_name(plane[1])
@@ -368,16 +368,16 @@ def room_process_by_plane(plane, target_objects, loaded_objects, args):
         if tmp_object.has_cp("room_id"):
             size = oriented_bbox_dimensions(bbox, plane[1])
             size_info[tmp_object.get_name()] = size
-            if is_close_to_plane(tmp_object, plane):
+            if is_close_to_plane(tmp_object, plane) or only_floor:
                 # bbox_height.append(max(bbox[:, 2]))
                 max_distance, min_distance = min_max_distance_to_plane(plane, bbox)
                 bbox_height.append(max_distance)
-                distance_info[tmp_object.get_name()] = max_distance
+                distance_info[tmp_object.get_name()] = min_distance
             else:
                 max_distance, min_distance = min_max_distance_to_plane(plane, bbox)
                 # bbox_height_not_target_furniture.append(min(bbox[:, 2]))
                 bbox_height_not_target_furniture.append(min_distance)
-                distance_info[tmp_object.get_name()] = max_distance
+                distance_info[tmp_object.get_name()] = min_distance
         else:
             distance_info[tmp_object.get_name()] = 0
             size_info[tmp_object.get_name()] = (0.0, 0.0, 0.0)
@@ -442,10 +442,13 @@ def room_process_by_plane(plane, target_objects, loaded_objects, args):
             bounding_box = get_bbox_of_all_objects(target_objects)
             # highest_point = bounding_box[1][2]  # Z-coordinate of the top of the bounding box
             # bird_eye_height = highest_point + 2  # for example,5 units/meters above the highest point
-            if min(bbox_height_not_target_furniture) > max(bbox_height):
+            if only_floor:
                 plane_height = max(bbox_height)
             else:
-                plane_height = min(bbox_height_not_target_furniture)
+                if min(bbox_height_not_target_furniture) > max(bbox_height):
+                    plane_height = max(bbox_height)
+                else:
+                    plane_height = min(bbox_height_not_target_furniture)
 
             print("plane height ====================", plane_height)
 
@@ -665,7 +668,13 @@ if __name__ == '__main__':
                             else:
                                 not_target_objects.append(tmp_object)
                         else:
-                            if "Wall" in tmp_object.get_name() or "Floor" in tmp_object.get_name() or "Ceiling" in tmp_object.get_name():
+                            # if "Wall" in tmp_object.get_name() or "Floor" in tmp_object.get_name() or "Ceiling" in tmp_object.get_name():
+                            #     if is_majority_of_vertices_inside_bbox(tmp_object.get_mesh(),
+                            #                                            layout_bbox) and all(term not in tmp_object.get_name() for term in excluded_terms):
+                            #         target_objects.append(tmp_object)
+                            #     else:
+                            #         not_target_objects.append(tmp_object)
+                            if "Floor" in tmp_object.get_name():
                                 if is_majority_of_vertices_inside_bbox(tmp_object.get_mesh(),
                                                                        layout_bbox) and all(term not in tmp_object.get_name() for term in excluded_terms):
                                     target_objects.append(tmp_object)
@@ -707,22 +716,22 @@ if __name__ == '__main__':
                 if len(planes) > 6:
                     continue
 
-                debug = False
+                debug = True
                 only_floor = True
                 for plane in planes:
                     if debug:
                         if np.array_equal(plane[1], np.array([0, 0, -1])):
-                            room_process_by_plane(plane, target_objects, loaded_objects, args)
+                            room_process_by_plane(plane, target_objects, loaded_objects, only_floor, args)
                             print("===================== finish one plane =======================")
                             break
                         else:
                             continue
                     if only_floor:
                         if np.array_equal(plane[1], np.array([0, 0, -1])):
-                            room_process_by_plane(plane, target_objects, loaded_objects, args)
+                            room_process_by_plane(plane, target_objects, loaded_objects, only_floor, args)
                             break
                     else:
-                        room_process_by_plane(plane, target_objects, loaded_objects, args)
+                        room_process_by_plane(plane, target_objects, loaded_objects, only_floor, args)
 
                 # room_process_by_plane(planes[5], target_objects, loaded_objects, args)
 
