@@ -372,7 +372,7 @@ def room_process_by_plane(plane, target_objects, loaded_objects, only_floor, arg
                 # bbox_height.append(max(bbox[:, 2]))
                 max_distance, min_distance = min_max_distance_to_plane(plane, bbox)
                 bbox_height.append(max_distance)
-                distance_info[tmp_object.get_name()] = min_distance
+                distance_info[tmp_object.get_name()] = tmp_object.get_location()[-1]
             else:
                 max_distance, min_distance = min_max_distance_to_plane(plane, bbox)
                 # bbox_height_not_target_furniture.append(min(bbox[:, 2]))
@@ -716,7 +716,7 @@ if __name__ == '__main__':
                 if len(planes) > 6:
                     continue
 
-                debug = True
+                debug = False
                 only_floor = True
                 for plane in planes:
                     if debug:
