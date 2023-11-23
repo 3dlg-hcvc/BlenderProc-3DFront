@@ -614,8 +614,8 @@ if __name__ == '__main__':
             # bproc.renderer.enable_normals_output()
 
             for current_bedroom_id in bedroom_ids:
-                if current_bedroom_id != "MasterBedroom-8583":
-                    continue
+                # if current_bedroom_id != "MasterBedroom-8583":
+                #     continue
 
                 room_output_folder = f"{scene_output_folder}_{current_bedroom_id}"
 
