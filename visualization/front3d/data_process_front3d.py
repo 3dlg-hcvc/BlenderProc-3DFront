@@ -24,7 +24,7 @@ import cv2
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Visualize a 3D-FRONT room.")
-    parser.add_argument("--output_dir", type=str, default='../../datasets/output/prosessed_3dfront_data_V2',
+    parser.add_argument("--output_dir", type=str, default='../../datasets/output/prosessed_3dfront_data_V3_test',
                         help="The output directory")
     parser.add_argument("--debug", default=False, action="store",
                         help="The output directory")
@@ -185,13 +185,20 @@ def process_scene(dataset_config, output_dir, floor_slice, scene_render_dir):
                 inst_dict['mask'] = inst_mask[y_min:y_max + 1, x_min:x_max + 1]
                 inst_dict['bbox2d'] = bbox
 
-                for part in parts:
+                valid_part = 0
+                for idx, part in enumerate(parts):
                     # Get 2D masks
                     part_mask = (instance_segmap == part['idx'])
 
                     # Use this mask to assign the height and orientation values to the global height_map and orientation_map
                     height_map_all[part_mask] = part['height']
                     orientation_map_all[part_mask] = part['orientation']
+
+                    current_vol = part["size"][0] * part["size"][1] * part["size"][2]
+                    previous_vol = parts[valid_part]["size"][0] * parts[valid_part]["size"][1] * parts[valid_part]["size"][2]
+
+                    if current_vol > previous_vol:
+                        valid_part = idx
 
                 # get 3D bbox
                 inst_rm_uid = "_".join([scene_json, inst_dict['room_id']])
@@ -200,11 +207,12 @@ def process_scene(dataset_config, output_dir, floor_slice, scene_render_dir):
 
                 polygon_mask = mask_to_coco_polygon(inst_mask)
                 inst_anno["mask"] = polygon_mask
-                inst_anno["size"] = parts[0]["size"]
-                inst_anno["orientation"] = parts[0]["orientation"]
-                inst_anno["offset"] = parts[0]["height"]
+                inst_anno["size"] = parts[valid_part]["size"]
+                inst_anno["orientation"] = parts[valid_part]["orientation"]
+                inst_anno["scale"] = parts[valid_part]["scale"]
+                inst_anno["offset"] = parts[valid_part]["height"]
                 inst_anno["inst_id"] = inst_id
-                inst_anno["model_id"] = parts[0]["jid"]
+                inst_anno["model_id"] = parts[valid_part]["jid"]
                 inst_id += 1
 
                 instance_annotation.append(inst_anno)
@@ -262,7 +270,7 @@ def process_scene(dataset_config, output_dir, floor_slice, scene_render_dir):
 if __name__ == '__main__':
     args = parse_args()
     # Create a list of directories.
-    base_rendering_path = "/localhome/xsa55/Xiaohao/SemDiffLayout/datasets/front_3d_with_improved_mat/renderings_V2"
+    base_rendering_path = "/localhome/xsa55/Xiaohao/SemDiffLayout/datasets/front_3d_with_improved_mat/tmp_renderings_2"
     scene_dirs = [d for d in Path(base_rendering_path).iterdir() if d.is_dir()]
 
     # Define the output directory

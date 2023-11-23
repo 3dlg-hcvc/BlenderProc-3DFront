@@ -496,8 +496,8 @@ def room_process_by_plane(plane, target_objects, loaded_objects, only_floor, arg
                       "cp_room_id": ""}
     data.update(bproc.renderer.render_segmap(
         map_by=["instance", "class", "cp_uid", "cp_jid", "cp_inst_mark", "cp_room_id", "location", "height",
-                "orientation", "size"],
-        default_values=default_values, distance_info=distance_info, size_info=size_info))
+                "orientation", "size", "scale"],
+        default_values=default_values))
 
     # # write camera extrinsics
     if "cam_Ts" in data:
@@ -614,8 +614,8 @@ if __name__ == '__main__':
             # bproc.renderer.enable_normals_output()
 
             for current_bedroom_id in bedroom_ids:
-                # if current_bedroom_id != "MasterBedroom-4017":
-                #     continue
+                if current_bedroom_id != "MasterBedroom-8583":
+                    continue
 
                 room_output_folder = f"{scene_output_folder}_{current_bedroom_id}"
 
