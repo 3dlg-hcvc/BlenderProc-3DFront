@@ -16,6 +16,7 @@ import sys
 sys.path.append('./')
 from visualization.front3d import Threed_Front_Config
 from visualization.front3d.tools.threed_front import ThreedFront
+from examples.datasets.front_3d_with_improved_mat.view_tool import ViewGenerator
 
 
 # import pydevd_pycharm
@@ -428,6 +429,7 @@ def room_process_by_plane(plane, target_objects, loaded_objects, only_floor, arg
     cam_nums = np.ceil(floor_areas / floor_areas.sum() * n_cameras).astype(np.int16)
     n_tries = cam_nums
 
+    bbox = {}
     for floor_id, cam_num_per_scene in enumerate(cam_nums):
         cam2world_matrices = []
         coverage_scores = []
@@ -458,6 +460,9 @@ def room_process_by_plane(plane, target_objects, loaded_objects, only_floor, arg
             location = [center_x,  # Center in X
                         center_y,  # Center in Y
                         center_z]  # Above the room
+            bbox["centroid"] = location
+            bbox["dimensions"] = [bounding_box[1][0] - bounding_box[0][0], bounding_box[1][1] - bounding_box[0][1],
+                                 bounding_box[1][2] - bounding_box[0][2]]
             plane_height = plane[0][np.nonzero(plane[1])[0][0]] - plane_height * plane[1][np.nonzero(plane[1])[0][0]]
             location[np.nonzero(plane[1])[0][0]] = plane_height
 
@@ -484,10 +489,23 @@ def room_process_by_plane(plane, target_objects, loaded_objects, only_floor, arg
                 bproc.camera.add_camera_pose(cam2world_matrix)
                 cam_Ts.append(cam2world_matrix)
 
+    view_generator = ViewGenerator()
+    view_opts = view_generator.get_fixed_resolution_view_for_bbox(bbox, pixel_width=0.1, theta=0, phi=0,
+                                                                  use_square_image=False)
+
     # render the whole pipeline
-    bproc.camera.set_intrinsics_from_blender_params(lens=args.fov / 180 * np.pi, image_width=args.res_x,
-                                                    image_height=args.res_y, clip_start=0.01, clip_end=5,
-                                                    lens_unit="FOV", ortho_scale=8)
+    # bproc.camera.set_intrinsics_from_blender_params(lens=args.fov / 180 * np.pi, image_width=args.res_x,
+    #                                                 image_height=args.res_y, clip_start=0.01, clip_end=5,
+    #                                                 lens_unit="FOV", ortho_scale=8)
+    dim_x = bbox["dimensions"][0]
+    dim_y = bbox["dimensions"][1]
+    pixel_width = 0.01
+    res_x = dim_x / pixel_width
+    res_y = dim_y / pixel_width
+    orthographic_scale = max(res_x, res_y) * pixel_width
+    bproc.camera.set_intrinsics_from_blender_params(lens=view_opts["fov"], image_width=res_x,
+                                                    image_height=res_y, clip_start=0, clip_end=10,
+                                                    lens_unit="FOV", ortho_scale=orthographic_scale)
 
     # bproc.renderer.enable_depth_output(activate_antialiasing=False)
     # tmp_output_dir = f"output/temp/{current_bedroom_id}"
@@ -676,7 +694,8 @@ if __name__ == '__main__':
                             #         not_target_objects.append(tmp_object)
                             if "Floor" in tmp_object.get_name():
                                 if is_majority_of_vertices_inside_bbox(tmp_object.get_mesh(),
-                                                                       layout_bbox) and all(term not in tmp_object.get_name() for term in excluded_terms):
+                                                                       layout_bbox) and all(
+                                    term not in tmp_object.get_name() for term in excluded_terms):
                                     target_objects.append(tmp_object)
                                 else:
                                     not_target_objects.append(tmp_object)
