@@ -24,7 +24,7 @@ import cv2
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Visualize a 3D-FRONT room.")
-    parser.add_argument("--output_dir", type=str, default='../../datasets/output/prosessed_3dfront_data_V4_test',
+    parser.add_argument("--output_dir", type=str, default='../../datasets/output/prosessed_3dfront_data_V4',
                         help="The output directory")
     parser.add_argument("--debug", default=False, action="store",
                         help="The output directory")
@@ -100,6 +100,8 @@ def process_scene(dataset_config, output_dir, floor_slice, scene_render_dir):
             json_files=json_files,
             filter_fn=lambda s: s)
         # print(d)
+
+        print("processing room ", room_id)
 
         output_dir = f"{output_dir}/{room_id}"
         if not os.path.exists(output_dir):
@@ -191,8 +193,8 @@ def process_scene(dataset_config, output_dir, floor_slice, scene_render_dir):
                     part_mask = (instance_segmap == part['idx'])
 
                     # Use this mask to assign the height and orientation values to the global height_map and orientation_map
-                    height_map_all[part_mask] = part['height']
-                    orientation_map_all[part_mask] = part['orientation']
+                    # height_map_all[part_mask] = part['height']
+                    # orientation_map_all[part_mask] = part['orientation']
 
                     current_vol = part["size"][0] * part["size"][1] * part["size"][2]
                     previous_vol = parts[valid_part]["size"][0] * parts[valid_part]["size"][1] * parts[valid_part]["size"][2]
@@ -220,7 +222,7 @@ def process_scene(dataset_config, output_dir, floor_slice, scene_render_dir):
                 inst_info.append(inst_dict)
 
             # Concatenate the height and orientation maps to form the object info map
-            object_info_map = np.concatenate([height_map_all[..., np.newaxis], orientation_map_all], axis=-1)
+            # object_info_map = np.concatenate([height_map_all[..., np.newaxis], orientation_map_all], axis=-1)
 
             # process cam_T from blender to ours
             cam_T = dataset_config.blender2opengl_cam(cam_T)
@@ -242,13 +244,13 @@ def process_scene(dataset_config, output_dir, floor_slice, scene_render_dir):
             # save height and orientation map
             depth_ori_output_path = os.path.join(output_dir, plane_name + "_depth_ori_map.npy")
             vis_output_path = os.path.join(output_dir, plane_name)
-            cv2.imwrite(
-                f'{vis_output_path}_height.png',
-                scale_to_0_255(height_map_all))
-            cv2.imwrite(
-                f'{vis_output_path}_orientation.png',
-                scale_to_0_255(orientation_map_all))
-            np.save(depth_ori_output_path, object_info_map)
+            # cv2.imwrite(
+            #     f'{vis_output_path}_height.png',
+            #     scale_to_0_255(height_map_all))
+            # cv2.imwrite(
+            #     f'{vis_output_path}_orientation.png',
+            #     scale_to_0_255(orientation_map_all))
+            # np.save(depth_ori_output_path, object_info_map)
 
             with open(f'{vis_output_path}_inst_anno.json', "w") as outfile:
                 json.dump(instance_annotation, outfile, indent=4)
