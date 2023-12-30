@@ -8,7 +8,7 @@ from blenderproc.python.types.MeshObjectUtility import MeshObject
 
 class Front3DPointInRoomSampler:
 
-    def __init__(self, front3d_objects: List[MeshObject], amount_of_objects_needed_per_room: int = 2):
+    def __init__(self, front3d_objects: List[MeshObject], amount_of_objects_needed_per_room: int = 0):
         """ Collects the floors of all rooms with at least N objects.
 
         :param front3d_objects: The list of front3d objects that should be considered.
@@ -31,7 +31,7 @@ class Front3DPointInRoomSampler:
                 is_above = floor_obj.position_is_above_object(obj.get_location())
                 if is_above:
                     floor_obj_counters[floor_obj.get_name()] += 1
-        self.used_floors = [obj for obj in floor_objs if floor_obj_counters[obj.get_name()] > amount_of_objects_needed_per_room]
+        self.used_floors = [obj for obj in floor_objs if floor_obj_counters[obj.get_name()] >= amount_of_objects_needed_per_room]
 
     def get_floor_areas(self):
         areas = []

@@ -107,7 +107,7 @@ def parse_threed_front_scenes(
                     ))
                 else:
                     continue
-            if len(furniture_in_room) > 1:
+            if len(furniture_in_room) > 0:
                 # Add to the list
                 rooms.append(Room(
                     rr["instanceid"],                # room_id

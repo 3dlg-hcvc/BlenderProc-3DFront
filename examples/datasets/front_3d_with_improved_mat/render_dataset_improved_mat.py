@@ -537,6 +537,12 @@ if __name__ == '__main__':
     # n_cameras = args.n_views_per_scene
     n_cameras = 1
 
+    split_path = "/localhome/xsa55/Xiaohao/SemDiffLayout/scripts/visualization/config/bedroom_threed_front_splits.csv"
+    valid_room_ids = []
+    with open(split_path, "r") as f:
+        for line in f:
+            valid_room_ids.append(line.strip().split(",")[0])
+
     failed_scene_name_file = output_folder.parent.joinpath('failed_scene_names.txt')
 
     cam_intrinsic_path = output_folder.joinpath('cam_K.npy')
@@ -618,24 +624,20 @@ if __name__ == '__main__':
                                  m in
                                  model_info_data}
 
-            # load the front 3D objects
-            loaded_objects = bproc.loader.load_front3d(
-                json_path=str(front_json),
-                future_model_path=str(future_folder),
-                front_3D_texture_path=str(front_3D_texture_folder),
-                label_mapping=mapping,
-                model_id_to_label=model_id_to_label)
-
-            bedroom_ids = set(obj.get_cp("room_id") for obj in loaded_objects if
-                              obj.has_cp("room_id") and "Bedroom" in obj.get_cp("room_id"))
+            bedroom_ids = set(room.room_id for room in d.rooms if "Bedroom" in room.room_id)
 
             # bproc.renderer.enable_normals_output()
 
             for current_bedroom_id in bedroom_ids:
                 # if current_bedroom_id != "MasterBedroom-8583":
                 #     continue
+                if current_bedroom_id not in valid_room_ids:
+                    continue
 
                 room_output_folder = f"{scene_output_folder}_{current_bedroom_id}"
+
+                if Path(room_output_folder).exists():
+                    continue
 
                 bproc.init()
                 RendererUtility.set_max_amount_of_samples(32)
@@ -737,6 +739,7 @@ if __name__ == '__main__':
 
                 debug = False
                 only_floor = True
+                print("process room: ", current_bedroom_id)
                 for plane in planes:
                     if debug:
                         if np.array_equal(plane[1], np.array([0, 0, -1])):
