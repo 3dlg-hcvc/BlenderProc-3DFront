@@ -614,7 +614,10 @@ if __name__ == '__main__':
 
             layout_boxes = {}
             for rm in d.rooms:
-                layout_boxes[rm.room_id] = rm.layout_box
+                try:
+                    layout_boxes[rm.room_id] = rm.layout_box
+                except:
+                    continue
 
             # read 3d future model info
             with open(future_folder.joinpath('model_info_revised.json'), 'r') as f:

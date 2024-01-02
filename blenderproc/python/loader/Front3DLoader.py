@@ -287,7 +287,7 @@ class Front3DLoader:
                 mesh.uv_layers.new(name="new_uv_layer")
                 mesh.uv_layers[-1].data.foreach_set("uv", used_uvs)
             else:
-                warnings.warn(f"This mesh {obj.name} does not have a specified uv map!")
+                warnings.warn(f"This mesh {obj.get_name()} does not have a specified uv map!")
 
             # this update converts the upper data into a mesh
             mesh.update()
