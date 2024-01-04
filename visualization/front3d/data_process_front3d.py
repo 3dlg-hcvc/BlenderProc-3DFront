@@ -7,6 +7,7 @@ import numpy as np
 import json
 from visualization.front3d import Threed_Front_Config
 from visualization.front3d.tools.threed_front import ThreedFront
+from visualization.front3d.tools.base import THREED_FRONT_BEDROOM_FURNITURE
 from visualization.front3d.data_process_classes import PROCESS_3DFRONT_2D
 from visualization.front3d.tools.utils import parse_inst_from_3dfront, project_insts_to_2d
 from visualization.utils.tools import label_mapping_2D
@@ -24,7 +25,7 @@ import cv2
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Visualize a 3D-FRONT room.")
-    parser.add_argument("--output_dir", type=str, default='../../datasets/output/prosessed_3dfront_data_V5',
+    parser.add_argument("--output_dir", type=str, default='../../datasets/output/prosessed_3dfront_data_V5.2',
                         help="The output directory")
     parser.add_argument("--debug", default=False, action="store",
                         help="The output directory")
@@ -39,7 +40,7 @@ def scale_to_0_255(arr):
     max_val = np.max(arr)
 
     # Scale the array to [0, 255]
-    if max_val-min_val != 0:
+    if max_val - min_val != 0:
         scaled_arr = 255 * (arr - min_val) / (max_val - min_val)
     else:
         scaled_arr = 255 * arr
@@ -104,8 +105,6 @@ def process_scene(dataset_config, output_dir, floor_slice, scene_render_dir):
         # print("processing room ", room_id)
 
         output_dir = f"{output_dir}/{room_id}"
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
 
         '''Read rendering information'''
         cam_K = dataset_config.cam_K
@@ -136,12 +135,15 @@ def process_scene(dataset_config, output_dir, floor_slice, scene_render_dir):
                     instance_segmap = np.array(f["instance_segmaps"])[:, ::-1]
                     instance_attribute_mapping = json.loads(f["instance_attribute_maps"][()])
 
-
-
             plane_name = str(render_path).split("/")[-1].split(".")[0]
 
             ### get scene_name
             scene_json = render_path.parent.name
+
+            obj_types = []
+            for inst in instance_attribute_mapping:
+                if inst["cf_basename"] not in ["World", "Floor"]:
+                    obj_types.append(inst["cf_basename"])
 
             #### class mapping
             class_segmap = label_mapping_2D(class_segmap, dataset_config.label_mapping)
@@ -197,7 +199,8 @@ def process_scene(dataset_config, output_dir, floor_slice, scene_render_dir):
                     # orientation_map_all[part_mask] = part['orientation']
 
                     current_vol = part["size"][0] * part["size"][1] * part["size"][2]
-                    previous_vol = parts[valid_part]["size"][0] * parts[valid_part]["size"][1] * parts[valid_part]["size"][2]
+                    previous_vol = parts[valid_part]["size"][0] * parts[valid_part]["size"][1] * \
+                                   parts[valid_part]["size"][2]
 
                     if current_vol > previous_vol:
                         valid_part = idx
@@ -215,6 +218,7 @@ def process_scene(dataset_config, output_dir, floor_slice, scene_render_dir):
                 inst_anno["offset"] = parts[valid_part]["height"]
                 inst_anno["inst_id"] = inst_id
                 inst_anno["model_id"] = parts[valid_part]["jid"]
+                inst_anno["basename"] = parts[valid_part]["cf_basename"]
                 inst_id += 1
 
                 instance_annotation.append(inst_anno)
@@ -236,12 +240,13 @@ def process_scene(dataset_config, output_dir, floor_slice, scene_render_dir):
             projected_box2d_list = project_insts_to_2d(inst_info, cam_K, cam_T)
             projected_inst_boxes.append(projected_box2d_list)
 
-        # # get room layout information
-        # layout_boxes = []
-        # for rm in d.rooms:
-        #     layout_boxes.append(rm.layout_box)
+            # # get room layout information
+            # layout_boxes = []
+            # for rm in d.rooms:
+            #     layout_boxes.append(rm.layout_box)
 
             # save height and orientation map
+
             depth_ori_output_path = os.path.join(output_dir, plane_name + "_depth_ori_map.npy")
             vis_output_path = os.path.join(output_dir, plane_name)
             # cv2.imwrite(
@@ -251,9 +256,14 @@ def process_scene(dataset_config, output_dir, floor_slice, scene_render_dir):
             #     f'{vis_output_path}_orientation.png',
             #     scale_to_0_255(orientation_map_all))
             # np.save(depth_ori_output_path, object_info_map)
-
+            if not os.path.exists(output_dir):
+                os.makedirs(output_dir)
             with open(f'{vis_output_path}_inst_anno.json', "w") as outfile:
                 json.dump(instance_annotation, outfile, indent=4)
+                # save base_obj_types into a txt file
+            with open(f'{vis_output_path}_base_obj_types.txt', "w") as outfile:
+                for obj_type in obj_types:
+                    outfile.write(obj_type + "\n")
 
         process_2D = PROCESS_3DFRONT_2D(color_maps=room_imgs, inst_info=instance_attrs,
                                         cls_maps=class_maps, class_names=dataset_config.label_names,
@@ -272,7 +282,7 @@ def process_scene(dataset_config, output_dir, floor_slice, scene_render_dir):
 if __name__ == '__main__':
     args = parse_args()
     # Create a list of directories.
-    base_rendering_path = "/localhome/xsa55/Xiaohao/SemDiffLayout/datasets/front_3d_with_improved_mat/renderings_V5"
+    base_rendering_path = "/localhome/xsa55/Xiaohao/SemDiffLayout/datasets/front_3d_with_improved_mat/renderings_V5.1"
     scene_dirs = [d for d in Path(base_rendering_path).iterdir() if d.is_dir()]
 
     # Define the output directory

@@ -101,7 +101,7 @@ def is_point_inside_box(point, box_corners, margin=0.01):
     return True
 
 
-def is_majority_of_vertices_inside_bbox(mesh, bbox_corners, threshold=0.6):
+def is_majority_of_vertices_inside_bbox(mesh, bbox_corners, threshold=0.9):
     """
     Check if a majority of vertices of the given mesh are inside the bounding box defined by bbox_corners.
 
@@ -462,7 +462,7 @@ def room_process_by_plane(plane, target_objects, loaded_objects, only_floor, arg
                         center_z]  # Above the room
             bbox["centroid"] = location
             bbox["dimensions"] = [bounding_box[1][0] - bounding_box[0][0], bounding_box[1][1] - bounding_box[0][1],
-                                 bounding_box[1][2] - bounding_box[0][2]]
+                                  bounding_box[1][2] - bounding_box[0][2]]
             plane_height = plane[0][np.nonzero(plane[1])[0][0]] - plane_height * plane[1][np.nonzero(plane[1])[0][0]]
             location[np.nonzero(plane[1])[0][0]] = plane_height
 
@@ -513,7 +513,8 @@ def room_process_by_plane(plane, target_objects, loaded_objects, only_floor, arg
     default_values = {"location": [0, 0, 0], "cp_inst_mark": '', "cp_uid": '', "cp_jid": '',
                       "cp_room_id": ""}
     data.update(bproc.renderer.render_segmap(
-        map_by=["instance", "class", "cp_uid", "cp_jid", "cp_inst_mark", "cp_room_id", "location", "height",
+        map_by=["instance", "class", "cp_uid", "cp_jid", "cp_inst_mark", "cp_room_id", "cf_basename", "location",
+                "height",
                 "orientation", "size", "scale"],
         default_values=default_values))
 
@@ -632,8 +633,8 @@ if __name__ == '__main__':
             # bproc.renderer.enable_normals_output()
 
             for current_bedroom_id in bedroom_ids:
-                # if current_bedroom_id != "MasterBedroom-8583":
-                #     continue
+                if current_bedroom_id != "MasterBedroom-18030":
+                    continue
                 if current_bedroom_id not in valid_room_ids:
                     continue
 
@@ -674,7 +675,7 @@ if __name__ == '__main__':
                 target_objects = []
                 excluded_terms = ["Outer", "Top", "Bottom"]
 
-                for tmp_object in loaded_objects:
+                for tmp_object in bproc.object.get_all_mesh_objects():
                     bbox = tmp_object.get_bound_box()
                     centroid = get_centroid(bbox)
                     origin = tmp_object.get_origin()
@@ -690,22 +691,27 @@ if __name__ == '__main__':
                                 target_objects.append(tmp_object)
                             else:
                                 not_target_objects.append(tmp_object)
-                        else:
-                            # if "Wall" in tmp_object.get_name() or "Floor" in tmp_object.get_name() or "Ceiling" in tmp_object.get_name():
-                            #     if is_majority_of_vertices_inside_bbox(tmp_object.get_mesh(),
-                            #                                            layout_bbox) and all(term not in tmp_object.get_name() for term in excluded_terms):
-                            #         target_objects.append(tmp_object)
-                            #     else:
-                            #         not_target_objects.append(tmp_object)
-                            if "Floor" in tmp_object.get_name():
-                                if is_majority_of_vertices_inside_bbox(tmp_object.get_mesh(),
-                                                                       layout_bbox) and all(
-                                    term not in tmp_object.get_name() for term in excluded_terms):
-                                    target_objects.append(tmp_object)
-                                else:
-                                    not_target_objects.append(tmp_object)
+                        elif "Floor" in tmp_object.get_name():
+                            if is_majority_of_vertices_inside_bbox(tmp_object.get_mesh(),
+                                                                   layout_bbox) and all(term not in tmp_object.get_name() for term in excluded_terms):
+                                target_objects.append(tmp_object)
                             else:
                                 not_target_objects.append(tmp_object)
+                        # if "Wall" in tmp_object.get_name() or "Floor" in tmp_object.get_name() or "Ceiling" in tmp_object.get_name():
+                        #     if is_majority_of_vertices_inside_bbox(tmp_object.get_mesh(),
+                        #                                            layout_bbox) and all(term not in tmp_object.get_name() for term in excluded_terms):
+                        #         target_objects.append(tmp_object)
+                        #     else:
+                        #         not_target_objects.append(tmp_object)
+                        # if "Floor" in tmp_object.get_name():
+                        #     if is_majority_of_vertices_inside_bbox(tmp_object.get_mesh(),
+                        #                                            layout_bbox) and all(
+                        #         term not in tmp_object.get_name() for term in excluded_terms):
+                        #         target_objects.append(tmp_object)
+                        #     else:
+                        #         not_target_objects.append(tmp_object)
+                        else:
+                            not_target_objects.append(tmp_object)
 
                 #          Sample materials
                 # -------------------------------------------------------------------------
@@ -735,7 +741,7 @@ if __name__ == '__main__':
                     for i in range(len(wall.get_materials())):
                         wall.set_material(i, random.choice(marble_materials))
 
-                bproc.object.delete_multiple(not_target_objects)
+                # bproc.object.delete_multiple(not_target_objects)
 
                 if len(planes) > 6:
                     continue
