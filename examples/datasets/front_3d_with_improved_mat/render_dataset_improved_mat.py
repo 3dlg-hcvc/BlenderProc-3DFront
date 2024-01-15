@@ -537,8 +537,9 @@ if __name__ == '__main__':
     front_json = front_folder.joinpath(args.front_json)
     # n_cameras = args.n_views_per_scene
     n_cameras = 1
+    room_type = "livingroom"
 
-    split_path = "/localhome/xsa55/Xiaohao/SemDiffLayout/scripts/visualization/config/bedroom_threed_front_splits.csv"
+    split_path = "/localhome/xsa55/Xiaohao/SemDiffLayout/scripts/visualization/config/livingroom_threed_front_splits.csv"
     valid_room_ids = []
     with open(split_path, "r") as f:
         for line in f:
@@ -628,13 +629,18 @@ if __name__ == '__main__':
                                  m in
                                  model_info_data}
 
-            bedroom_ids = set(room.room_id for room in d.rooms if "Bedroom" in room.room_id)
+            if room_type == "bedroom":
+                room_ids = set(room.room_id for room in d.rooms if "Bedroom" in room.room_id)
+            elif room_type == "livingroom":
+                room_ids = set(room.room_id for room in d.rooms if "Living" in room.room_id)
+            elif room_type == "dinigroom":
+                room_ids = set(room.room_id for room in d.rooms if "Dining" in room.room_id)
 
             # bproc.renderer.enable_normals_output()
 
-            for current_bedroom_id in bedroom_ids:
-                if current_bedroom_id != "MasterBedroom-18030":
-                    continue
+            for current_bedroom_id in room_ids:
+                # if current_bedroom_id != "MasterBedroom-18030":
+                #     continue
                 if current_bedroom_id not in valid_room_ids:
                     continue
 
@@ -741,7 +747,7 @@ if __name__ == '__main__':
                     for i in range(len(wall.get_materials())):
                         wall.set_material(i, random.choice(marble_materials))
 
-                # bproc.object.delete_multiple(not_target_objects)
+                bproc.object.delete_multiple(not_target_objects)
 
                 if len(planes) > 6:
                     continue
