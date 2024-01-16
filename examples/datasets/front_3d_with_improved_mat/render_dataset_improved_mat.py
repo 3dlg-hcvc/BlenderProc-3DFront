@@ -34,7 +34,7 @@ def parse_args():
                         help="Path to CCTextures folder, see the /scripts for the download script.")
     parser.add_argument("output_folder", nargs='?', default="examples/datasets/front_3d_with_improved_mat/renderings",
                         help="Path to where the data should be saved")
-    parser.add_argument("--n_views_per_scene", type=int, default=100,
+    parser.add_argument("--n_views_per_scene", type=int, default=1,
                         help="The number of views to render in each scene.")
     parser.add_argument("--bound_slice", default=True, type=bool,
                         help="If we want to get boundary slices for all rooms")
