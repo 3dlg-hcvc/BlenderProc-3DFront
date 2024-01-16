@@ -426,8 +426,8 @@ def room_process_by_plane(plane, target_objects, loaded_objects, only_floor, arg
     proximity_checks = {}
     cam_Ts = []
     floor_areas = np.array(point_sampler.get_floor_areas())
-    cam_nums = np.ceil(floor_areas / floor_areas.sum() * n_cameras).astype(np.int16)
-    cam_nums = 1
+    # cam_nums = np.ceil(floor_areas / floor_areas.sum() * n_cameras).astype(np.int16)
+    cam_nums = [1]
     n_tries = cam_nums
 
     bbox = {}
