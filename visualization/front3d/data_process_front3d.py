@@ -25,11 +25,13 @@ import cv2
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Visualize a 3D-FRONT room.")
-    parser.add_argument("--output_dir", type=str, default='../../datasets/output/prosessed_3dfront_data_livingroom_V0',
+    parser.add_argument("--output_dir", type=str, default='../../datasets/output/tmp_3dfront_data_livingroom_V0',
                         help="The output directory")
-    parser.add_argument("--debug", default=False, action="store",
+    parser.add_argument("--debug", default=True, action="store",
                         help="The output directory")
     parser.add_argument("--floor", default=True, action="store",
+                        help="The output directory")
+    parser.add_argument("--room_type", type=str, default='living',
                         help="The output directory")
     return parser.parse_args()
 
@@ -80,10 +82,10 @@ def mask_to_coco_polygon(binary_mask):
     return coco_polygons
 
 
-def process_scene(dataset_config, output_dir, floor_slice, scene_render_dir):
+def process_scene(dataset_config, output_dir, floor_slice, room_type, scene_render_dir):
     try:
         # initialize category labels and mapping dict for specific room type.
-        dataset_config.init_generic_categories_by_room_type('all')
+        dataset_config.init_generic_categories_by_room_type(room_type)
 
         '''Read 3D-Front Data'''
         room_id = scene_render_dir.parts[-1]
@@ -282,16 +284,17 @@ def process_scene(dataset_config, output_dir, floor_slice, scene_render_dir):
 if __name__ == '__main__':
     args = parse_args()
     # Create a list of directories.
-    base_rendering_path = "/localhome/xsa55/Xiaohao/SemDiffLayout/datasets/front_3d_with_improved_mat/renderings_livingroom_V0"
+    base_rendering_path = "/localhome/xsa55/Xiaohao/SemDiffLayout/datasets/front_3d_with_improved_mat/tmp_renderings_livingroom"
     scene_dirs = [d for d in Path(base_rendering_path).iterdir() if d.is_dir()]
 
     # Define the output directory
     output_directory = args.output_dir
     dataset_config = Threed_Front_Config()
     floor_slice = args.floor
+    room_type = args.room_type
 
     if args.debug:
-        process_scene(dataset_config, output_directory, floor_slice, scene_dirs[0])
+        process_scene(dataset_config, output_directory, floor_slice, room_type, scene_dirs[0])
     else:
-        partial_process = partial(process_scene, dataset_config, output_directory, floor_slice)
+        partial_process = partial(process_scene, dataset_config, output_directory, floor_slice, room_type)
         process_map(partial_process, scene_dirs, chunksize=1)

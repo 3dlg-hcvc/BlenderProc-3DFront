@@ -34,6 +34,8 @@ def parse_args():
                         help="Path to CCTextures folder, see the /scripts for the download script.")
     parser.add_argument("output_folder", nargs='?', default="examples/datasets/front_3d_with_improved_mat/renderings",
                         help="Path to where the data should be saved")
+    parser.add_argument("--room_type", default="all", type=str,
+                        help="The type of room to render. Can be one of 'all', 'bed', 'living', 'dining', 'library'.")
     parser.add_argument("--n_views_per_scene", type=int, default=1,
                         help="The number of views to render in each scene.")
     parser.add_argument("--bound_slice", default=True, type=bool,
@@ -538,7 +540,7 @@ if __name__ == '__main__':
     front_json = front_folder.joinpath(args.front_json)
     # n_cameras = args.n_views_per_scene
     n_cameras = 1
-    room_type = "livingroom"
+    room_type = args.room_type
 
     split_path = "/localhome/xsa55/Xiaohao/SemDiffLayout/scripts/visualization/config/livingroom_threed_front_splits.csv"
     valid_room_ids = []
@@ -603,7 +605,7 @@ if __name__ == '__main__':
                 np.save(str(cam_intrinsic_path), cam_K)
 
             dataset_config = Threed_Front_Config()
-            dataset_config.init_generic_categories_by_room_type('all')
+            dataset_config.init_generic_categories_by_room_type(room_type)
             json_file = [str(front_json).split("/")[-1]]
             d = ThreedFront.from_dataset_directory(
                 str(dataset_config.threed_front_dir),
@@ -630,11 +632,11 @@ if __name__ == '__main__':
                                  m in
                                  model_info_data}
 
-            if room_type == "bedroom":
+            if room_type == "bed":
                 room_ids = set(room.room_id for room in d.rooms if "Bedroom" in room.room_id)
-            elif room_type == "livingroom":
+            elif room_type == "living":
                 room_ids = set(room.room_id for room in d.rooms if "Living" in room.room_id)
-            elif room_type == "dinigroom":
+            elif room_type == "dining":
                 room_ids = set(room.room_id for room in d.rooms if "Dining" in room.room_id)
 
             # bproc.renderer.enable_normals_output()
