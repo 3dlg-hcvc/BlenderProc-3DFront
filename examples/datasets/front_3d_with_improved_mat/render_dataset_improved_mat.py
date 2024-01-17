@@ -542,7 +542,7 @@ if __name__ == '__main__':
     n_cameras = 1
     room_type = args.room_type
 
-    split_path = "/localhome/xsa55/Xiaohao/SemDiffLayout/scripts/visualization/config/livingroom_threed_front_splits.csv"
+    split_path = f"/localhome/xsa55/Xiaohao/SemDiffLayout/scripts/visualization/config/{room_type}room_threed_front_splits.csv"
     valid_room_ids = []
     with open(split_path, "r") as f:
         for line in f:
