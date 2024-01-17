@@ -49,6 +49,7 @@ def per_call(process_id, args, front_jsons_by_process):
     for front_json in front_jsons_by_process[process_id]:
         cmd = ["blenderproc", "run", per_render_script_path, str(front_folder), str(future_folder),
                str(front_3D_texture_folder), str(front_json), str(cc_material_folder), str(output_folder),
+               '--room_type', str(args.room_type),
                '--n_views_per_scene', str(args.n_views_per_scene),
                '--append_to_existing_output', str(args.append_to_existing_output)]
         print(" ".join(cmd))
