@@ -24,6 +24,8 @@ def parse_args():
                         help="If append new renderings to the existing ones.")
     parser.add_argument("--n_processes", type=int, default=1,
                         help="Number of rendering processes to run in parallel. less than available GPUs.")
+    parser.add_argument("--room_type", default="all", type=str,
+                        help="The type of room to render. Can be one of 'all', 'bed', 'living', 'dining', 'library'.")
     parser.add_argument("--fov", type=int, default=90, help="Field of view of camera.")
     parser.add_argument("--res_x", type=int, default=480, help="Image width.")
     parser.add_argument("--res_y", type=int, default=360, help="Image height.")
