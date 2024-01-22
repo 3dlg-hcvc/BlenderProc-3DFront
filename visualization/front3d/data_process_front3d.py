@@ -25,9 +25,9 @@ import cv2
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Visualize a 3D-FRONT room.")
-    parser.add_argument("--output_dir", type=str, default='../../datasets/output/processed_3dfront_data_diningroom_V0',
+    parser.add_argument("--output_dir", type=str, default='../../datasets/output/processed_3dfront_data_livingroom_V1',
                         help="The output directory")
-    parser.add_argument("--debug", default=False, action="store",
+    parser.add_argument("--debug", default=True, action="store",
                         help="The output directory")
     parser.add_argument("--floor", default=True, action="store",
                         help="The output directory")
@@ -284,7 +284,7 @@ def process_scene(dataset_config, output_dir, floor_slice, room_type, scene_rend
 if __name__ == '__main__':
     args = parse_args()
     # Create a list of directories.
-    base_rendering_path = "/localhome/xsa55/Xiaohao/SemDiffLayout/datasets/front_3d_with_improved_mat/renderings_diningroom_V0"
+    base_rendering_path = "/localhome/xsa55/Xiaohao/SemDiffLayout/datasets/front_3d_with_improved_mat/renderings_V5.1"
     scene_dirs = [d for d in Path(base_rendering_path).iterdir() if d.is_dir()]
 
     # Define the output directory

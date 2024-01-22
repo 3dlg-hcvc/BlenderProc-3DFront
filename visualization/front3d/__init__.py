@@ -87,6 +87,10 @@ class Threed_Front_Config(Data_Process_Config):
         new_categories = [bg_label] + sorted(list(set(raw_label_to_generic_label.values()) - {bg_label}))
         new_label_mapping = {int(key): new_categories.index(value) for key, value in raw_label_to_generic_label.items()}
         new_label_to_generic_label = {idx: cat for idx, cat in enumerate(new_categories)}
+        # save the new label mapping to a json file.
+        import json
+        with open("/localhome/xsa55/Xiaohao/SemDiffLayout/scripts/visualization/config/bedroom_idx_to_generic_label.json", 'w') as f:
+            json.dump(new_label_to_generic_label, f)
 
         # Update label names and mapping dict.
         self._label_names = new_categories
