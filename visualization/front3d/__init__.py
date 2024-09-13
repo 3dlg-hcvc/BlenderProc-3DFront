@@ -15,7 +15,7 @@ class Threed_Front_Config(Data_Process_Config):
         self.threed_future_dir = self.root_path.joinpath('3D-FUTURE-model')
         self.model_info_path = self.threed_future_dir.joinpath('model_info_revised.json')
         self.layout_texture_path = self.root_path.joinpath('3D-FRONT-texture')
-        self.threed_front_rendering_dir = self.root_path.joinpath('renderings_V4')
+        self.threed_front_rendering_dir = self.root_path.joinpath('renderings_V5')
         self.dump_dir_to_scenes = self.root_path.joinpath('preprocess').joinpath('3D-FRONT_scenes')
 
         self.cam_K = np.load(self.threed_front_rendering_dir.joinpath('cam_K.npy'))
