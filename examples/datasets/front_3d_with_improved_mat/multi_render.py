@@ -29,6 +29,8 @@ def parse_args():
     parser.add_argument("--fov", type=int, default=90, help="Field of view of camera.")
     parser.add_argument("--res_x", type=int, default=480, help="Image width.")
     parser.add_argument("--res_y", type=int, default=360, help="Image height.")
+    parser.add_argument("--debug", action="store_true", 
+                       help="Debug mode: limits to 100 rooms and enables additional logging")
     return parser.parse_args()
 
 
@@ -74,6 +76,7 @@ if __name__ == '__main__':
         failure_scenes = []
 
     filtered_fron_jsons = []
+    existing_room_count = 0
     for json_file in front_jsons:
         scene_name = os.path.splitext(json_file)[0]
         scene_output_folder = output_folder.joinpath(scene_name)
@@ -86,6 +89,22 @@ if __name__ == '__main__':
             print('File in failure log: %s. Continue.' % (scene_name))
             continue
         filtered_fron_jsons.append(json_file)
+        
+    # If in debug mode, limit the total number of rooms to process
+    if args.debug:
+        rooms_left = 100 - existing_room_count
+        if rooms_left <= 0:
+            print(f'Debug mode: Already have {existing_room_count} rooms generated. Stopping.')
+            exit(0)
+        if len(filtered_fron_jsons) > rooms_left:
+            print(f'Debug mode: Limiting remaining rooms to {rooms_left}')
+            filtered_fron_jsons = filtered_fron_jsons[:rooms_left]
+            
+    # Adjust number of processes if we have fewer rooms than processes
+    n_processes = min(args.n_processes, len(filtered_fron_jsons))
+    if n_processes == 0:
+        print("No rooms to process. Exiting.")
+        exit(0)
 
     front_jsons_by_process = np.array_split(filtered_fron_jsons, args.n_processes)
 

@@ -20,7 +20,11 @@ from examples.datasets.front_3d_with_improved_mat.view_tool import ViewGenerator
 
 
 # import pydevd_pycharm
-# pydevd_pycharm.settrace('localhost', port=12345, stdoutToServer=True, stderrToServer=True)
+# pydevd_pycharm.settrace('localhost',
+#                            port=12345,
+#                            stdoutToServer=True,
+#                            stderrToServer=True)  # Add this if using multiprocessing
+
 
 
 def parse_args():
@@ -34,7 +38,7 @@ def parse_args():
                         help="Path to CCTextures folder, see the /scripts for the download script.")
     parser.add_argument("output_folder", nargs='?', default="examples/datasets/front_3d_with_improved_mat/renderings",
                         help="Path to where the data should be saved")
-    parser.add_argument("--room_type", default="all", type=str,
+    parser.add_argument("--room_type", default="living", type=str,
                         help="The type of room to render. Can be one of 'all', 'bed', 'living', 'dining', 'library'.")
     parser.add_argument("--n_views_per_scene", type=int, default=1,
                         help="The number of views to render in each scene.")
@@ -45,6 +49,8 @@ def parse_args():
     parser.add_argument("--fov", type=int, default=120, help="Field of view of camera.")
     parser.add_argument("--res_x", type=int, default=480, help="Image width.")
     parser.add_argument("--res_y", type=int, default=360, help="Image height.")
+    parser.add_argument("--arch", default=True, type=bool,
+                        help="If we want to have the architecture such as door/window")
     return parser.parse_args()
 
 
@@ -541,6 +547,7 @@ if __name__ == '__main__':
     # n_cameras = args.n_views_per_scene
     n_cameras = 1
     room_type = args.room_type
+    print("Starting script...")
 
     split_path = f"/localhome/xsa55/Xiaohao/SemDiffLayout/scripts/visualization/config/{room_type}room_threed_front_splits.csv"
     valid_room_ids = []
@@ -618,9 +625,13 @@ if __name__ == '__main__':
                 filter_fn=lambda s: s)
 
             layout_boxes = {}
+            extra_meshes_uid = {}
             for rm in d.rooms:
                 try:
                     layout_boxes[rm.room_id] = rm.layout_box
+                    extra_meshes_uid[rm.room_id] = []
+                    for extra in rm.extras:
+                        extra_meshes_uid[rm.room_id].append(extra.model_uid)
                 except:
                     continue
 
@@ -683,11 +694,16 @@ if __name__ == '__main__':
                 not_target_objects = []
                 target_objects = []
                 excluded_terms = ["Outer", "Top", "Bottom"]
+                
+                arch_count = 0
 
                 for tmp_object in bproc.object.get_all_mesh_objects():
+                    if tmp_object.get_name().lower() == "door":
+                        print("?????????????????")
                     bbox = tmp_object.get_bound_box()
                     centroid = get_centroid(bbox)
                     origin = tmp_object.get_origin()
+                    # breakpoint()
 
                     if args.bound_slice:
                         if tmp_object.has_cp("room_id"):
@@ -700,9 +716,23 @@ if __name__ == '__main__':
                                 target_objects.append(tmp_object)
                             else:
                                 not_target_objects.append(tmp_object)
-                        elif "Floor" in tmp_object.get_name():
-                            if is_majority_of_vertices_inside_bbox(tmp_object.get_mesh(),
-                                                                   layout_bbox) and all(term not in tmp_object.get_name() for term in excluded_terms):
+                        elif any(term in tmp_object.get_name() for term in ["Floor", "WallInner"]):
+                            # if is_majority_of_vertices_inside_bbox(tmp_object.get_mesh(),
+                            #                                        layout_bbox, threshold=0.9) and all(term not in tmp_object.get_name() for term in excluded_terms):
+                            #     target_objects.append(tmp_object)
+                            # else:
+                            #     not_target_objects.append(tmp_object)
+                            if tmp_object.get_cp("uid") in extra_meshes_uid[current_bedroom_id]:
+                                target_objects.append(tmp_object)
+                            else:
+                                not_target_objects.append(tmp_object)
+                        elif any(term in tmp_object.get_name() for term in ["Door", "Window"]):
+                            arch_count += 1
+                            # if is_majority_of_vertices_inside_bbox(tmp_object.get_mesh(),layout_bbox, threshold=0.5) and all(term not in tmp_object.get_name() for term in excluded_terms):
+                            #     target_objects.append(tmp_object)
+                            # else:
+                            #     not_target_objects.append(tmp_object)
+                            if tmp_object.get_cp("uid") in extra_meshes_uid[current_bedroom_id]:
                                 target_objects.append(tmp_object)
                             else:
                                 not_target_objects.append(tmp_object)
@@ -721,7 +751,10 @@ if __name__ == '__main__':
                         #         not_target_objects.append(tmp_object)
                         else:
                             not_target_objects.append(tmp_object)
-
+                
+                if args.arch and arch_count == 0:
+                    continue
+                
                 #          Sample materials
                 # -------------------------------------------------------------------------
                 # -------------------------------------------------------------------------

@@ -111,7 +111,11 @@ class PROCESS_3DFRONT_2D(object):
         self.projected_inst_boxes = kwargs.get('projected_inst_boxes', None)
         if 'class_names' in kwargs:
             self.class_names = kwargs['class_names']
-        self.cls_palette = (np.array(sns.color_palette('hls', len(self.class_names))) * 255).astype(np.uint8)
+        # self.cls_palette = (np.array(sns.color_palette('hls', len(self.class_names))) * 255).astype(np.uint8)
+        # define a color palette from the json file
+        color_palette_json = "/localhome/xsa55/Xiaohao/SemDiffLayout/scripts/visualization/config/color_palette.json"
+        with open(color_palette_json, "r") as f:
+            self.cls_palette = json.load(f)
         self.plane_names = kwargs["plane_names"]
 
     def draw_box2d_from_3d(self):
@@ -175,7 +179,10 @@ class PROCESS_3DFRONT_2D(object):
                 lbl_img.save(f'{output_dir}/{plane_name}_label_map.png')
 
             for inst in insts_per_img:
-                color = tuple(self.cls_palette[inst['category_id']])
+                # breakpoint()
+                cls_label = self.class_names[inst['category_id']]
+                color = tuple(self.cls_palette[cls_label])
+                # print(self.class_names[inst['category_id']])
 
                 mask = np.zeros(masked_image.shape[:2], dtype=bool)
                 x_min, y_min, width, height = inst['bbox2d']

@@ -73,6 +73,9 @@ class Threed_Front_Config(Data_Process_Config):
                         threed_label not in self.raw_threed_front_mapping.values()])
 
         generic_mapping["floor"] = "floor"
+        generic_mapping["door"] = "door"
+        generic_mapping["window"] = "window"
+        generic_mapping["baywindow"] = "window"
         # generic_mapping["wallinner"] = "wallinner"
         # generic_mapping["ceiling"] = "ceiling"
 
@@ -93,6 +96,7 @@ class Threed_Front_Config(Data_Process_Config):
             json.dump(new_label_to_generic_label, f)
 
         # Update label names and mapping dict.
+        # breakpoint()
         self._label_names = new_categories
         self._label_mapping = new_label_mapping
         self._generic_mapping = generic_mapping
