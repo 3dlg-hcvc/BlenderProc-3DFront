@@ -113,9 +113,7 @@ def render_segmap(output_dir: Optional[str] = None, temp_dir: Optional[str] = No
                 segmentation = load_image(file_path)
                 print(file_path, segmentation.shape)
 
-                segmap = Utility.map_back_from_equally_spaced_equidistant_values(segmentation,
-                                                                                 num_splits_per_dimension,
-                                                                                 render_colorspace_size_per_dimension)
+                segmap = Utility.map_back_from_equally_spaced_equidistant_values(segmentation.astype(np.float32), num_splits_per_dimension, render_colorspace_size_per_dimension)
                 segmap = segmap.astype(optimal_dtype)
 
                 object_ids = np.unique(segmap)

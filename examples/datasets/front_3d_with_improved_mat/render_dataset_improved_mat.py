@@ -522,11 +522,7 @@ def room_process_by_plane(plane, target_objects, loaded_objects, only_floor, arg
     data = bproc.renderer.render()
     default_values = {"location": [0, 0, 0], "cp_inst_mark": '', "cp_uid": '', "cp_jid": '',
                       "cp_room_id": "", "cp_arch_element": 0}
-    data.update(bproc.renderer.render_segmap(
-        map_by=["instance", "class", "cp_uid", "cp_jid", "cp_inst_mark", "cp_room_id", "cf_basename", "location",
-                "height",
-                "orientation", "size", "scale", "cp_arch_element"],
-        default_values=default_values))
+    data.update(bproc.renderer.render_segmap(map_by=["instance", "class", "cp_uid", "cp_jid", "cp_inst_mark", "cp_room_id", "cf_basename", "location", "height", "orientation", "size", "scale", "cp_arch_element"], default_values=default_values))
     
     # breakpoint()
     # Temporarily hide non-architectural elements
