@@ -84,6 +84,7 @@ if __name__ == '__main__':
             existing_n_renderings = len(list(scene_output_folder.iterdir()))
             if existing_n_renderings >= args.n_views_per_scene:
                 print('Scene %s is already generated.' % (scene_output_folder.name))
+                existing_room_count += 1
                 continue
         if scene_name in failure_scenes:
             print('File in failure log: %s. Continue.' % (scene_name))

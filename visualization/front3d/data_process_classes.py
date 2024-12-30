@@ -181,7 +181,7 @@ class PROCESS_3DFRONT_2D(object):
             for inst in insts_per_img:
                 # breakpoint()
                 cls_label = self.class_names[inst['category_id']]
-                color = tuple(self.cls_palette[cls_label])
+                color = tuple(self.cls_palette[cls_label]) 
                 # print(self.class_names[inst['category_id']])
 
                 mask = np.zeros(masked_image.shape[:2], dtype=bool)
@@ -189,6 +189,13 @@ class PROCESS_3DFRONT_2D(object):
                 x_max = x_min + width - 1
                 y_max = y_min + height - 1
                 mask[y_min: y_max + 1, x_min: x_max + 1] = inst['mask']
+                # if cls_label == "floor":
+                #     # save the floor mask as 0,1 binary mask
+                #     floor_mask = mask.astype(np.uint8)
+                #     floor_mask = floor_mask * 255
+                #     floor_mask = Image.fromarray(floor_mask)
+                #     floor_mask.save(f'{output_dir}/floor_mask.png')
+                #     breakpoint()
 
                 inst_map[mask] = color
                 labeled_img[mask] = inst['category_id']

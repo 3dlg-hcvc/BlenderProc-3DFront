@@ -28,7 +28,7 @@ def parse_args():
     parser.add_argument(
         "--output_dir",
         type=str,
-        default="../../datasets/output/test_bedroom_debug",
+        default="../../datasets/output/test_livingroom_sample_100_V1",
         help="The output directory",
     )
     parser.add_argument("--debug", default=False, action="store", help="The output directory")
@@ -84,6 +84,40 @@ def mask_to_coco_polygon(binary_mask):
 
     return coco_polygons
 
+def process_arch_map(arch_map):
+    instance_mapping = arch_map["instance_attribute_maps"][0]
+    arch_map = np.asarray(arch_map["instance_segmaps"])[:, ::-1][0]
+    # change the instance id to the arch_element id
+    for mapping in instance_mapping:
+        instance_id = mapping['idx']
+        arch_element_id = mapping['arch_element']
+        arch_map[arch_map == instance_id] = arch_element_id
+        
+    arch_map = arch_map[::-1, ::-1]
+    return arch_map
+
+def process_arch_map_to_image(arch_map, cls_palette, output_dir):
+    # convert the arch_map to image format and preserve 0, 1, 2, 3
+    arch_map_image = np.zeros((arch_map.shape[0], arch_map.shape[1], 3), dtype=np.uint8)
+    
+    # Map values to object types
+    mapping = {
+        0: "void",  # Adjust these names to match your palette
+        1: "floor",
+        2: "door",
+        3: "window"
+    }
+    
+    for i in range(4):
+        # Convert RGB to BGR by reversing the color array
+        color_rgb = cls_palette[mapping[i]]
+        color_bgr = color_rgb[::-1]  # Reverse RGB to BGR
+        arch_map_image[arch_map == i] = color_bgr
+    
+    # arch_map_image = cv2.flip(arch_map_image, -1) 
+    
+    cv2.imwrite(f"{output_dir}/arch_map.png", arch_map_image)
+    return
 
 def process_scene(dataset_config, output_dir, floor_slice, room_type, scene_render_dir):
     try:
@@ -110,9 +144,14 @@ def process_scene(dataset_config, output_dir, floor_slice, room_type, scene_rend
         # print("processing room ", room_id)
 
         output_dir = f"{output_dir}/{room_id}"
+        os.makedirs(output_dir, exist_ok=True)
 
         '''Read rendering information'''
         cam_K = dataset_config.cam_K
+        
+        color_palette_json = "/localhome/xsa55/Xiaohao/SemDiffLayout/scripts/visualization/config/color_palette.json"
+        with open(color_palette_json, "r") as f:
+            cls_palette = json.load(f)
 
         room_imgs = []
         room_heights = []
@@ -130,6 +169,11 @@ def process_scene(dataset_config, output_dir, floor_slice, room_type, scene_rend
                     class_segmap = np.array(f["class_segmaps"])[:, ::-1]
                     instance_segmap = np.array(f["instance_segmaps"])[:, ::-1]
                     instance_attribute_mapping = json.loads(f["instance_attribute_maps"][()])
+                    arch_map = json.loads(f["arch_map"][()])
+                    arch_map = process_arch_map(arch_map).astype(np.uint8)  
+                # save the arch_map to image format and numpy format to preserve 0, 1, 2, 3
+                np.save(f"{output_dir}/arch_map.npy", arch_map)
+                process_arch_map_to_image(arch_map, cls_palette, output_dir)
             elif floor_slice and "Bottom" not in str(render_path):
                 continue
             else:
@@ -139,7 +183,8 @@ def process_scene(dataset_config, output_dir, floor_slice, room_type, scene_rend
                     class_segmap = np.array(f["class_segmaps"])[:, ::-1]
                     instance_segmap = np.array(f["instance_segmaps"])[:, ::-1]
                     instance_attribute_mapping = json.loads(f["instance_attribute_maps"][()])
-
+                    # arch_map = np.array(f["arch_map"])
+                    # breakpoint()
             plane_name = str(render_path).split("/")[-1].split(".")[0]
 
             ### get scene_name
@@ -171,7 +216,7 @@ def process_scene(dataset_config, output_dir, floor_slice, room_type, scene_rend
 
             for inst_mark in inst_marks:
                 parts = [part for part in instance_attribute_mapping if part['inst_mark'] == inst_mark]
-
+                # breakpoint()
                 # remove background objects.
                 category_id = dataset_config.label_mapping[parts[0]['category_id']]
                 if category_id == 0:
@@ -287,7 +332,7 @@ def process_scene(dataset_config, output_dir, floor_slice, room_type, scene_rend
 if __name__ == '__main__':
     args = parse_args()
     # Create a list of directories.
-    base_rendering_path = "/local-scratch/localhome/xsa55/Xiaohao/SemDiffLayout/datasets/front_3d_with_improved_mat/test_bedroom_debug"
+    base_rendering_path = "/localhome/xsa55/Xiaohao/SemDiffLayout/datasets/front_3d_with_improved_mat/samples_100_rendering_living_w_arch_V1"
     scene_dirs = [d for d in Path(base_rendering_path).iterdir() if d.is_dir()]
 
     # Define the output directory

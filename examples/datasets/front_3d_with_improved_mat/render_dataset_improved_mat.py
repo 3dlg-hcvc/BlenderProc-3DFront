@@ -16,6 +16,7 @@ import sys
 sys.path.append('./')
 from visualization.front3d import Threed_Front_Config
 from visualization.front3d.tools.threed_front import ThreedFront
+from visualization.front3d.tools.base import THREED_FRONT_BEDROOM_FURNITURE, THREED_FRONT_LIVINGROOM_FURNITURE
 from examples.datasets.front_3d_with_improved_mat.view_tool import ViewGenerator
 
 
@@ -520,18 +521,40 @@ def room_process_by_plane(plane, target_objects, loaded_objects, only_floor, arg
     # tmp_output_dir = f"output/temp/{current_bedroom_id}"
     data = bproc.renderer.render()
     default_values = {"location": [0, 0, 0], "cp_inst_mark": '', "cp_uid": '', "cp_jid": '',
-                      "cp_room_id": ""}
+                      "cp_room_id": "", "cp_arch_element": 0}
     data.update(bproc.renderer.render_segmap(
         map_by=["instance", "class", "cp_uid", "cp_jid", "cp_inst_mark", "cp_room_id", "cf_basename", "location",
                 "height",
-                "orientation", "size", "scale"],
+                "orientation", "size", "scale", "cp_arch_element"],
         default_values=default_values))
+    
+    # breakpoint()
+    # Temporarily hide non-architectural elements
+    furniture_objects = [obj for obj in bproc.object.get_all_mesh_objects() if obj.get_cp("arch_element") == 0]
+    for obj in furniture_objects:
+        obj.hide(True)
+    
+    # breakpoint()
+    # Render architectural map
+    arch_data = bproc.renderer.render_segmap(
+        map_by=["instance", "cp_arch_element"],
+        default_values={"instance": 0, "cp_arch_element": 0})
+    
+    # # Restore visibility
+    # for obj in furniture_objects:
+    #     obj.hide(False)
+    
+    # breakpoint()
+    # Add architectural map to data
+    data["arch_map"] = [arch_data]
 
     # # write camera extrinsics
     if "cam_Ts" in data:
         data['cam_Ts'].append(cam_Ts)
     else:
         data['cam_Ts'] = cam_Ts
+        
+    # breakpoint()
     sub_data = {key: [value[-1]] for key, value in data.items()}
 
     # # write the data to a .hdf5 container
@@ -643,12 +666,16 @@ if __name__ == '__main__':
                                  m in
                                  model_info_data}
 
+            # get room ids for specific room type and also read the object constraints
             if room_type == "bed":
                 room_ids = set(room.room_id for room in d.rooms if "Bedroom" in room.room_id)
+                object_constraints = THREED_FRONT_BEDROOM_FURNITURE
             elif room_type == "living":
                 room_ids = set(room.room_id for room in d.rooms if "Living" in room.room_id)
+                object_constraints = THREED_FRONT_LIVINGROOM_FURNITURE
             elif room_type == "dining":
                 room_ids = set(room.room_id for room in d.rooms if "Dining" in room.room_id)
+                object_constraints = THREED_FRONT_LIVINGROOM_FURNITURE
 
             # bproc.renderer.enable_normals_output()
 
@@ -707,13 +734,14 @@ if __name__ == '__main__':
 
                     if args.bound_slice:
                         if tmp_object.has_cp("room_id"):
-                            if tmp_object.get_cp(
-                                    "room_id") == current_bedroom_id:
+                            if tmp_object.get_cp("room_id") == current_bedroom_id and tmp_object.get_name().split(".")[0] in object_constraints.keys():
+                            # if tmp_object.get_cp("room_id") == current_bedroom_id:
                                 # if is_close_to_plane(tmp_object, planes[0]):
                                 #     traget_objects.append(tmp_object)
                                 # else:
                                 #     not_target_objects.append(tmp_object)
                                 target_objects.append(tmp_object)
+                                # breakpoint()
                             else:
                                 not_target_objects.append(tmp_object)
                         elif any(term in tmp_object.get_name() for term in ["Floor", "WallInner"]):
@@ -784,6 +812,18 @@ if __name__ == '__main__':
                         wall.set_material(i, random.choice(marble_materials))
 
                 bproc.object.delete_multiple(not_target_objects)
+                
+                for obj in bproc.object.get_all_mesh_objects():
+                    # Set default value
+                    obj.set_cp("arch_element", 0)
+                    
+                    # Set values based on object names
+                    if "Floor" in obj.get_name():
+                        obj.set_cp("arch_element", 1)
+                    elif "Door" in obj.get_name():
+                        obj.set_cp("arch_element", 2)
+                    elif "Window" in obj.get_name():
+                        obj.set_cp("arch_element", 3)
 
                 if len(planes) > 6:
                     continue
