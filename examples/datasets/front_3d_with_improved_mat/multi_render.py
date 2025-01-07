@@ -29,8 +29,7 @@ def parse_args():
     parser.add_argument("--fov", type=int, default=90, help="Field of view of camera.")
     parser.add_argument("--res_x", type=int, default=480, help="Image width.")
     parser.add_argument("--res_y", type=int, default=360, help="Image height.")
-    parser.add_argument("--debug", action="store_true", 
-                       help="Debug mode: limits to 100 rooms and enables additional logging")
+    parser.add_argument("--custom-blender-path", type=str, default=None, help="Path to the custom Blender executable.")
     return parser.parse_args()
 
 
@@ -49,11 +48,19 @@ def per_call(process_id, args, front_jsons_by_process):
 
     per_render_script_path = args.blenderproc_script_path
     for front_json in front_jsons_by_process[process_id]:
-        cmd = ["blenderproc", "run", per_render_script_path, str(front_folder), str(future_folder),
-               str(front_3D_texture_folder), str(front_json), str(cc_material_folder), str(output_folder),
-               '--room_type', str(args.room_type),
-               '--n_views_per_scene', str(args.n_views_per_scene),
-               '--append_to_existing_output', str(args.append_to_existing_output)]
+        if args.custom_blender_path:
+            cmd = ["blenderproc", "run", per_render_script_path, str(front_folder), str(future_folder),
+                str(front_3D_texture_folder), str(front_json), str(cc_material_folder), str(output_folder),
+                '--custom-blender-path', str(args.custom_blender_path),
+                '--room_type', str(args.room_type),
+                '--n_views_per_scene', str(args.n_views_per_scene),
+                '--append_to_existing_output', str(args.append_to_existing_output)]
+        else:
+            cmd = ["blenderproc", "run", per_render_script_path, str(front_folder), str(future_folder),
+                str(front_3D_texture_folder), str(front_json), str(cc_material_folder), str(output_folder),
+                '--room_type', str(args.room_type),
+                '--n_views_per_scene', str(args.n_views_per_scene),
+                '--append_to_existing_output', str(args.append_to_existing_output)]
         print(" ".join(cmd))
         # execute one BlenderProc run
         subprocess.run(" ".join(cmd), env=env, shell=True, check=True)
@@ -76,7 +83,6 @@ if __name__ == '__main__':
         failure_scenes = []
 
     filtered_fron_jsons = []
-    existing_room_count = 0
     for json_file in front_jsons:
         scene_name = os.path.splitext(json_file)[0]
         scene_output_folder = output_folder.joinpath(scene_name)
@@ -84,28 +90,11 @@ if __name__ == '__main__':
             existing_n_renderings = len(list(scene_output_folder.iterdir()))
             if existing_n_renderings >= args.n_views_per_scene:
                 print('Scene %s is already generated.' % (scene_output_folder.name))
-                existing_room_count += 1
                 continue
         if scene_name in failure_scenes:
             print('File in failure log: %s. Continue.' % (scene_name))
             continue
         filtered_fron_jsons.append(json_file)
-        
-    # If in debug mode, limit the total number of rooms to process
-    if args.debug:
-        rooms_left = 100 - existing_room_count
-        if rooms_left <= 0:
-            print(f'Debug mode: Already have {existing_room_count} rooms generated. Stopping.')
-            exit(0)
-        if len(filtered_fron_jsons) > rooms_left:
-            print(f'Debug mode: Limiting remaining rooms to {rooms_left}')
-            filtered_fron_jsons = filtered_fron_jsons[:rooms_left]
-            
-    # Adjust number of processes if we have fewer rooms than processes
-    n_processes = min(args.n_processes, len(filtered_fron_jsons))
-    if n_processes == 0:
-        print("No rooms to process. Exiting.")
-        exit(0)
 
     front_jsons_by_process = np.array_split(filtered_fron_jsons, args.n_processes)
 
