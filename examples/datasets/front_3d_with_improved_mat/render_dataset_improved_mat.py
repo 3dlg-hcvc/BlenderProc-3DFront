@@ -533,6 +533,7 @@ def room_process_by_plane(plane, target_objects, loaded_objects, only_floor, arg
     breakpoint()
     # Render architectural map
     arch_data = bproc.renderer.render_segmap(
+        temp_dir="../../datasets/tmp",
         map_by=["instance", "cp_arch_element"],
         default_values={"instance": 0, "cp_arch_element": 0})
     
