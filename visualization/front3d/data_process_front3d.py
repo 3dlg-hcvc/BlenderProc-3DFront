@@ -28,7 +28,7 @@ def parse_args():
     parser.add_argument(
         "--output_dir",
         type=str,
-        default="../../datasets/output/test_livingroom_sample_100_V1",
+        default="../../datasets/output/test_livingroom_debug",
         help="The output directory",
     )
     parser.add_argument("--debug", default=False, action="store", help="The output directory")
@@ -214,6 +214,8 @@ def process_scene(dataset_config, output_dir, floor_slice, room_type, scene_rend
             orientation_map_all = np.zeros((*instance_segmap.shape, 3),
                                            dtype=np.float32)  # Assuming 3 values for orientation and float32 type
 
+            # breakpoint()
+
             for inst_mark in inst_marks:
                 parts = [part for part in instance_attribute_mapping if part['inst_mark'] == inst_mark]
                 # breakpoint()
@@ -332,7 +334,7 @@ def process_scene(dataset_config, output_dir, floor_slice, room_type, scene_rend
 if __name__ == '__main__':
     args = parse_args()
     # Create a list of directories.
-    base_rendering_path = "/localhome/xsa55/Xiaohao/SemDiffLayout/datasets/front_3d_with_improved_mat/samples_100_rendering_living_w_arch_V1"
+    base_rendering_path = "/localhome/xsa55/Xiaohao/SemDiffLayout/datasets/front_3d_with_improved_mat/test_bedroom_debug"
     scene_dirs = [d for d in Path(base_rendering_path).iterdir() if d.is_dir()]
 
     # Define the output directory
