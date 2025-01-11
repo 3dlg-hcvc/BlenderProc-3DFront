@@ -483,6 +483,19 @@ def render(output_dir: Optional[str] = None, file_prefix: str = "rgb_", output_k
 
     bpy.context.scene.render.filepath = os.path.join(output_dir, file_prefix)
 
+    # add new light
+    bpy.ops.object.light_add(type="AREA")
+    light2 = bpy.data.lights["Area"]
+    light2.energy = 30000
+    bpy.data.objects["Area"].location[2] = 0.5
+    bpy.data.objects["Area"].scale[0] = 100
+    bpy.data.objects["Area"].scale[1] = 100
+    bpy.data.objects["Area"].scale[2] = 100
+
+    bpy.data.worlds["World"].use_nodes = True
+    bpy.data.worlds["World"].node_tree.nodes["Background"].inputs[0].default_value = (1.0, 1.0, 1.0, 1.0)
+    bpy.data.worlds["World"].node_tree.nodes["Background"].inputs[1].default_value = 0.2
+
     # Skip if there is nothing to render
     if bpy.context.scene.frame_end != bpy.context.scene.frame_start:
         if len(get_all_blender_mesh_objects()) == 0:

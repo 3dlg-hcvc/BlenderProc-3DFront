@@ -341,7 +341,7 @@ def process_scene(dataset_config, output_dir, floor_slice, room_type, scene_rend
 if __name__ == '__main__':
     args = parse_args()
     # Create a list of directories.
-    base_rendering_path = "/localhome/xsa55/Xiaohao/SemDiffLayout/datasets/front_3d_with_improved_mat/rendering_bedroom_w_arch_V1"
+    base_rendering_path = "/localhome/xsa55/Xiaohao/SemDiffLayout/datasets/front_3d_with_improved_mat/test_bedroom_debug"
     scene_dirs = [d for d in Path(base_rendering_path).iterdir() if d.is_dir()]
 
     # Define the output directory

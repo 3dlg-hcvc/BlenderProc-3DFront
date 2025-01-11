@@ -179,7 +179,7 @@ class PROCESS_3DFRONT_2D(object):
                 lbl_img.save(f'{output_dir}/{plane_name}_label_map.png')
 
             for inst in insts_per_img:
-                breakpoint()
+                # breakpoint()
                 cls_label = self.class_names[inst['category_id']]
                 color = tuple(self.cls_palette[cls_label]) 
                 # print(cls_label)
