@@ -39,7 +39,7 @@ def parse_args():
                         help="Path to CCTextures folder, see the /scripts for the download script.")
     parser.add_argument("output_folder", nargs='?', default="examples/datasets/front_3d_with_improved_mat/renderings",
                         help="Path to where the data should be saved")
-    parser.add_argument("--room_type", default="living", type=str,
+    parser.add_argument("--room_type", default="bed", type=str,
                         help="The type of room to render. Can be one of 'all', 'bed', 'living', 'dining', 'library'.")
     parser.add_argument("--n_views_per_scene", type=int, default=1,
                         help="The number of views to render in each scene.")
@@ -530,7 +530,6 @@ def room_process_by_plane(plane, target_objects, loaded_objects, only_floor, arg
     for obj in furniture_objects:
         obj.hide(True)
     
-    breakpoint()
     # Render architectural map
     arch_data = bproc.renderer.render_segmap(
         temp_dir="./tmp",
@@ -677,7 +676,7 @@ if __name__ == '__main__':
             # bproc.renderer.enable_normals_output()
 
             for current_bedroom_id in room_ids:
-                # if current_bedroom_id != "MasterBedroom-18030":
+                # if current_bedroom_id != "SecondBedroom-32650":
                 #     continue
                 if current_bedroom_id not in valid_room_ids:
                     continue
@@ -777,8 +776,8 @@ if __name__ == '__main__':
                         else:
                             not_target_objects.append(tmp_object)
                 
-                if args.arch and arch_count == 0:
-                    continue
+                # if args.arch and arch_count == 0:
+                #     continue
                 
                 #          Sample materials
                 # -------------------------------------------------------------------------

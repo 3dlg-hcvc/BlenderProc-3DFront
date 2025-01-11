@@ -28,7 +28,7 @@ def parse_args():
     parser.add_argument(
         "--output_dir",
         type=str,
-        default="../../datasets/output/test_livingroom_debug",
+        default="../../datasets/output/processed_bedroom_w_arch_V1",
         help="The output directory",
     )
     parser.add_argument("--debug", default=False, action="store", help="The output directory")
@@ -170,10 +170,17 @@ def process_scene(dataset_config, output_dir, floor_slice, room_type, scene_rend
                     instance_segmap = np.array(f["instance_segmaps"])[:, ::-1]
                     instance_attribute_mapping = json.loads(f["instance_attribute_maps"][()])
                     arch_map = json.loads(f["arch_map"][()])
-                    arch_map = process_arch_map(arch_map).astype(np.uint8)  
+                    arch_map = process_arch_map(arch_map).astype(np.uint8) 
+
+                    # # save class_segmap and colors
+                    # cv2.imwrite(f"{output_dir}/class_segmap.png", class_segmap)
+                    # cv2.imwrite(f"{output_dir}/colors.png", colors)
+
                 # save the arch_map to image format and numpy format to preserve 0, 1, 2, 3
+                # use class_segmap to save the arch_map, 
                 np.save(f"{output_dir}/arch_map.npy", arch_map)
                 process_arch_map_to_image(arch_map, cls_palette, output_dir)
+                # breakpoint()
             elif floor_slice and "Bottom" not in str(render_path):
                 continue
             else:
@@ -334,7 +341,7 @@ def process_scene(dataset_config, output_dir, floor_slice, room_type, scene_rend
 if __name__ == '__main__':
     args = parse_args()
     # Create a list of directories.
-    base_rendering_path = "/localhome/xsa55/Xiaohao/SemDiffLayout/datasets/front_3d_with_improved_mat/test_bedroom_debug"
+    base_rendering_path = "/localhome/xsa55/Xiaohao/SemDiffLayout/datasets/front_3d_with_improved_mat/rendering_bedroom_w_arch_V1"
     scene_dirs = [d for d in Path(base_rendering_path).iterdir() if d.is_dir()]
 
     # Define the output directory
@@ -344,7 +351,16 @@ if __name__ == '__main__':
     room_type = args.room_type
 
     if args.debug:
-        process_scene(dataset_config, output_directory, floor_slice, room_type, scene_dirs[0])
+        specific_room_id = "74dbc810-1bbb-43b6-9a26-714b3742c631_SecondBedroom-32650"
+        for scene_dir in tqdm(scene_dirs):
+            if specific_room_id is not None:
+                if specific_room_id in str(scene_dir):
+                    process_scene(dataset_config, output_directory, floor_slice, room_type, scene_dir)
+                else:
+                    continue
+            else:
+                process_scene(dataset_config, output_directory, floor_slice, room_type, scene_dir)
+                
     else:
         partial_process = partial(process_scene, dataset_config, output_directory, floor_slice, room_type)
         process_map(partial_process, scene_dirs, chunksize=1)

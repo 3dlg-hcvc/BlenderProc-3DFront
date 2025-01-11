@@ -161,7 +161,7 @@ class PROCESS_3DFRONT_2D(object):
 
     def draw_inst_maps(self, type=(), output_dir='output'):
         for idx, insts_per_img in enumerate(self.inst_info):
-            masked_image = self.color_maps[0].astype(np.uint8).copy()
+            masked_image = self.cls_maps[0].astype(np.uint8).copy()
             inst_map = np.zeros((masked_image.shape[0], masked_image.shape[1], 3), dtype=np.uint8)
 
             labeled_img = np.zeros(masked_image.shape[:2], dtype=np.int32)  # Image to store category IDs
@@ -179,16 +179,20 @@ class PROCESS_3DFRONT_2D(object):
                 lbl_img.save(f'{output_dir}/{plane_name}_label_map.png')
 
             for inst in insts_per_img:
-                # breakpoint()
+                breakpoint()
                 cls_label = self.class_names[inst['category_id']]
                 color = tuple(self.cls_palette[cls_label]) 
-                # print(self.class_names[inst['category_id']])
+                # print(cls_label)
 
                 mask = np.zeros(masked_image.shape[:2], dtype=bool)
                 x_min, y_min, width, height = inst['bbox2d']
                 x_max = x_min + width - 1
                 y_max = y_min + height - 1
-                mask[y_min: y_max + 1, x_min: x_max + 1] = inst['mask']
+                try:
+                    mask[y_min: y_max + 1, x_min: x_max + 1] = inst['mask']
+                    # mask[x_min: x_max + 1, y_min: y_max + 1] = inst['mask']
+                except:
+                    breakpoint()
                 # if cls_label == "floor":
                 #     # save the floor mask as 0,1 binary mask
                 #     floor_mask = mask.astype(np.uint8)
