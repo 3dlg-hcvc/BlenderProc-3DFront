@@ -9,7 +9,7 @@ from visualization.front3d.tools.base import THREED_FRONT_BEDROOM_FURNITURE, THR
 
 
 class Threed_Front_Config(Data_Process_Config):
-    def __init__(self, dataset_name='front_3d_with_improved_mat', proj_dir='../../'):
+    def __init__(self, dataset_name='front_3d_with_improved_mat', proj_dir=''):
         super(Threed_Front_Config, self).__init__(dataset_name, proj_dir)
         self.threed_front_dir = self.root_path.joinpath('3D-FRONT')
         self.threed_future_dir = self.root_path.joinpath('3D-FUTURE-model')
@@ -20,7 +20,7 @@ class Threed_Front_Config(Data_Process_Config):
 
         self.cam_K = np.load(self.threed_front_rendering_dir.joinpath('cam_K.npy'))
         self.image_size = self.cam_K[:2, 2] * 2 + 1
-        self.blender_label_mapping_path = Path('blenderproc/resources/front_3D/blender_label_mapping.csv')
+        self.blender_label_mapping_path = Path('preprocess/semlayout/resources/blender_label_mapping.csv')
         self._raw_threed_front_mapping = read_mapping_csv(self.blender_label_mapping_path, from_label='id', to_label='name')
         self._label_names = []
         self._label_mapping = []
